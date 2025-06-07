@@ -1,100 +1,88 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Quiz, Question, QuizSubmission } from '../types/quiz';
+import { Quiz, QuizSubmission } from '../types/quiz';
 import { quizService } from '../services/api';
 
 interface QuizTakerProps {
     quizId: number;
-    onComplete: () => void;
+    onComplete?: () => void;
 }
 
 export const QuizTaker: React.FC<QuizTakerProps> = ({ quizId, onComplete }) => {
+    const navigate = useNavigate();
     const [quiz, setQuiz] = useState<Quiz | null>(null);
     const [submission, setSubmission] = useState<QuizSubmission | null>(null);
     const [answers, setAnswers] = useState<Record<number, number>>({});
+    const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [timeLeft, setTimeLeft] = useState<number | null>(null);
-    const navigate = useNavigate();
 
-    useEffect(() => {
-        loadQuiz();
-    }, [quizId]);
-
-    useEffect(() => {
-        if (timeLeft === null || timeLeft <= 0) return;
-
-        const timer = setInterval(() => {
-            setTimeLeft(prev => {
-                if (prev === null || prev <= 0) {
-                    clearInterval(timer);
-                    handleSubmit();
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [timeLeft]);
-
-    const loadQuiz = async () => {
+    const loadQuiz = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
+            
+            // Load the quiz
             const loadedQuiz = await quizService.getQuiz(quizId);
-            console.log('Loaded quiz:', loadedQuiz);
             setQuiz(loadedQuiz);
 
-            // Start the quiz
+            // Start the quiz and create a submission
             const startedQuiz = await quizService.startQuiz(quizId);
-            console.log('Started quiz submission:', startedQuiz);
             setSubmission(startedQuiz);
             setAnswers(startedQuiz.answers || {});
 
-            // Set timer if quiz has time limit and startedAt is valid
-            if (loadedQuiz.timeLimit && startedQuiz.startedAt) {
-                const endTime = new Date(startedQuiz.startedAt);
-                if (!isNaN(endTime.getTime())) {
-                    endTime.setMinutes(endTime.getMinutes() + Number(loadedQuiz.timeLimit));
-                    const timeLeft = Math.max(0, Math.floor((endTime.getTime() - Date.now()) / 1000));
-                    setTimeLeft(timeLeft);
-                } else {
-                    setTimeLeft(null);
-                }
-            } else {
-                setTimeLeft(null);
+            // Set timer if quiz has time limit
+            if (loadedQuiz.timeLimit) {
+                setTimeLeft(loadedQuiz.timeLimit * 60);
             }
         } catch (error) {
-            console.error('Error loading quiz:', error);
             setError('Error loading quiz. Please try again.');
+            console.error('Error loading quiz:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [quizId]);
+
+    const handleSubmit = useCallback(async () => {
+        try {
+            const result = await quizService.submitQuiz(quizId, answers);
+            setSubmission(result);
+            if (onComplete) {
+                onComplete();
+            }
+            navigate(`/quiz-submission/${result.id}`);
+        } catch (error) {
+            setError('Error submitting quiz. Please try again.');
+            console.error('Error submitting quiz:', error);
+        }
+    }, [quizId, answers, onComplete, navigate]);
+
+    useEffect(() => {
+        loadQuiz();
+    }, [loadQuiz]);
+
+    useEffect(() => {
+        if (submission && timeLeft !== null) {
+            const timer = setInterval(() => {
+                setTimeLeft(prev => {
+                    if (prev === null || prev <= 0) {
+                        clearInterval(timer);
+                        handleSubmit();
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+
+            return () => clearInterval(timer);
+        }
+    }, [submission, timeLeft, handleSubmit]);
 
     const handleAnswerChange = (questionId: number, answerId: number) => {
         setAnswers(prev => ({
             ...prev,
             [questionId]: answerId,
         }));
-    };
-
-    const handleSubmit = async () => {
-        if (!submission) return;
-
-        try {
-            setLoading(true);
-            const result = await quizService.submitQuiz(quizId, answers);
-            setSubmission(result);
-            onComplete();
-            navigate(`/quiz-submission/${result.id}`);
-        } catch (error) {
-            setError('Error submitting quiz. Please try again.');
-            console.error('Error submitting quiz:', error);
-        } finally {
-            setLoading(false);
-        }
     };
 
     if (loading) {

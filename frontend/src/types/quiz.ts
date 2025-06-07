@@ -33,6 +33,7 @@ export interface QuizSubmission {
     score?: number;
     answers: Record<number, number>;
     startedAt: Date;
+    completedAt?: Date;
     submittedAt?: Date;
 }
 

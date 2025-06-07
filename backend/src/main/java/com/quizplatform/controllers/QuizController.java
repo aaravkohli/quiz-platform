@@ -74,7 +74,14 @@ public class QuizController extends BaseController {
         try {
             Long quizId = Long.parseLong(ctx.pathParam("id"));
             Long userId = getCurrentUserId(ctx);
-            User.UserRole role = User.UserRole.valueOf(ctx.attribute("userRole").toString());
+            Object userRoleObj = ctx.attribute("userRole");
+            User.UserRole role = userRoleObj != null ? User.UserRole.valueOf(userRoleObj.toString()) : null;
+            
+            System.out.println("=== Quiz Debug ===");
+            System.out.println("Request path: " + ctx.path());
+            System.out.println("Quiz ID: " + quizId);
+            System.out.println("User ID: " + userId);
+            System.out.println("User Role: " + role);
             
             Optional<Quiz> quiz;
             if (role == User.UserRole.INSTRUCTOR) {
@@ -334,6 +341,47 @@ public class QuizController extends BaseController {
             ctx.json(submission);
         } catch (Exception e) {
             ctx.status(500).json(Map.of("error", "Error getting submission: " + e.getMessage()));
+        }
+    }
+
+    public void getQuizAttempts(Context ctx) {
+        try {
+            Long quizId = Long.parseLong(ctx.pathParam("id"));
+            Long instructorId = getCurrentUserId(ctx);
+            User.UserRole userRole = (User.UserRole) ctx.attribute("userRole");
+            
+            System.out.println("=== Quiz Attempts Debug ===");
+            System.out.println("Request path: " + ctx.path());
+            System.out.println("Quiz ID: " + quizId);
+            System.out.println("Instructor ID: " + instructorId);
+            System.out.println("User Role: " + userRole);
+            System.out.println("Auth Header: " + ctx.header("Authorization"));
+            
+            // Verify quiz ownership
+            Quiz quiz = quizRepository.findById(quizId).orElse(null);
+            if (quiz == null) {
+                System.out.println("Quiz " + quizId + " not found");
+                errorResponse(ctx, 404, "Quiz not found");
+                return;
+            }
+            
+            System.out.println("Found quiz: " + quiz.getTitle() + " (instructor: " + quiz.getInstructorId() + ")");
+            System.out.println("Current instructor ID: " + instructorId);
+            System.out.println("Quiz instructor ID: " + quiz.getInstructorId());
+            System.out.println("IDs match: " + quiz.getInstructorId().equals(instructorId));
+            
+            if (!quiz.getInstructorId().equals(instructorId)) {
+                System.out.println("Permission denied: instructor " + instructorId + " does not own quiz " + quizId);
+                errorResponse(ctx, 403, "You don't have permission to view attempts for this quiz");
+                return;
+            }
+            
+            List<QuizSubmission> submissions = submissionRepository.findByQuizId(quizId);
+            System.out.println("Found " + submissions.size() + " submissions for quiz " + quizId);
+            jsonResponse(ctx, submissions);
+        } catch (Exception e) {
+            e.printStackTrace();
+            errorResponse(ctx, 500, "Error getting quiz attempts: " + e.getMessage());
         }
     }
 } 

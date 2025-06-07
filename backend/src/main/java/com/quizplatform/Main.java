@@ -15,6 +15,8 @@ import io.javalin.http.Context;
 import io.javalin.http.Handler;
 import java.util.Set;
 import org.flywaydb.core.Flyway;
+import java.util.Map;
+import com.quizplatform.utils.SecurityUtils;
 
 public class Main {
     private static HikariDataSource dataSource;
@@ -33,6 +35,10 @@ public class Main {
                     it.allowHost("http://localhost:3000");
                     it.allowCredentials = true;
                 });
+            });
+            // Add request logging
+            config.requestLogger.http((ctx, ms) -> {
+                System.out.println("Request: " + ctx.method() + " " + ctx.path() + " - " + ms + "ms");
             });
             config.accessManager((handler, ctx, permittedRoles) -> {
                 // Get user role from context
@@ -64,6 +70,10 @@ public class Main {
         QuizController quizController = new QuizController();
 
         // Public routes
+        app.get("/", ctx -> {
+            System.out.println("Root endpoint hit!");
+            ctx.result("Server is running!");
+        });
         app.post("/api/users/register", userController::register);
         app.post("/api/users/login", userController::login);
         app.get("/health", ctx -> ctx.result("OK"));
@@ -71,6 +81,7 @@ public class Main {
 
         // Protected routes - require authentication
         app.before("/api/*", ctx -> {
+            System.out.println("AuthMiddleware running for: " + ctx.path());
             // Skip auth for public routes
             if (ctx.path().equals("/api/users/register") || ctx.path().equals("/api/users/login")) {
                 return;
@@ -95,7 +106,7 @@ public class Main {
         app.get("/api/users", userController::getAllUsers);
         app.delete("/api/users/{id}", userController::deleteUser);
 
-        // Quiz routes
+        // Quiz routes (all now require authentication)
         app.post("/api/quizzes", quizController::createQuiz, User.UserRole.INSTRUCTOR);
         app.get("/api/quizzes", quizController::getQuizzes);
         app.get("/api/quizzes/{id}", quizController::getQuiz);
@@ -103,7 +114,46 @@ public class Main {
         app.delete("/api/quizzes/{id}", quizController::deleteQuiz, User.UserRole.INSTRUCTOR);
         app.post("/api/quizzes/{id}/questions", quizController::addQuestion, User.UserRole.INSTRUCTOR);
         app.post("/api/quizzes/{id}/publish", quizController::publishQuiz, User.UserRole.INSTRUCTOR);
-
+        
+        // Test route
+        app.get("/api/test", ctx -> {
+            System.out.println("Test route hit!");
+            ctx.result("Test route works!");
+        });
+        
+        // Quiz attempts route - refactored to a more robust pattern
+        app.get("/api/quizzes/{id}/attempts", ctx -> {
+            System.out.println("=== Quiz Attempts Route ===");
+            System.out.println("Request path: " + ctx.path());
+            System.out.println("Quiz ID: " + ctx.pathParam("id"));
+            System.out.println("Auth header: " + ctx.header("Authorization"));
+            try {
+                // First verify authentication
+                String token = ctx.header("Authorization");
+                if (token == null || !token.startsWith("Bearer ")) {
+                    ctx.status(401).json(Map.of("error", "Authentication required"));
+                    return;
+                }
+                token = token.substring(7);
+                SecurityUtils.verifyToken(token);
+                Long userId = SecurityUtils.getUserIdFromToken(token);
+                User.UserRole role = SecurityUtils.getRoleFromToken(token);
+                System.out.println("User ID: " + userId);
+                System.out.println("User Role: " + role);
+                if (role != User.UserRole.INSTRUCTOR) {
+                    ctx.status(403).json(Map.of("error", "Instructor access required"));
+                    return;
+                }
+                // Set user context
+                ctx.attribute("userId", userId);
+                ctx.attribute("userRole", role);
+                // Call the controller method
+                quizController.getQuizAttempts(ctx);
+            } catch (Exception e) {
+                e.printStackTrace();
+                ctx.status(401).json(Map.of("error", "Invalid or expired token"));
+            }
+        });
         // Quiz submission routes
         app.post("/api/quizzes/{id}/start", quizController::startQuiz, User.UserRole.STUDENT);
         app.post("/api/quizzes/{id}/submit", quizController::submitQuiz, User.UserRole.STUDENT);

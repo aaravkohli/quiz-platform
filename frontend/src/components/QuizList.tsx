@@ -146,6 +146,14 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
                                                         Publish
                                                     </button>
                                                 )}
+                                                {quiz.isPublished && (
+                                                    <Link
+                                                        to={`/quiz-attempts/${quiz.id}`}
+                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                    >
+                                                        View Attempts
+                                                    </Link>
+                                                )}
                                             </>
                                         ) : (
                                             <Link

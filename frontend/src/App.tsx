@@ -8,6 +8,7 @@ import { UserProfile } from './components/UserProfile';
 import { authService } from './services/api';
 import { User } from './types/quiz';
 import { QuizSubmissionSummary } from './components/QuizSubmissionSummary';
+import QuizAttempts from './components/QuizAttempts';
 
 const QuizTakerWrapper = () => {
     const { id } = useParams();
@@ -203,6 +204,14 @@ const App = () => {
                             element={
                                 <ProtectedRoute>
                                     <QuizSubmissionSummary />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/quiz-attempts/:id"
+                            element={
+                                <ProtectedRoute requireInstructor>
+                                    <QuizAttempts />
                                 </ProtectedRoute>
                             }
                         />

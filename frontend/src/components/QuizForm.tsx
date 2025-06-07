@@ -36,16 +36,10 @@ export const QuizForm: React.FC<QuizFormProps> = ({ quizId, onSave }) => {
     const navigate = useNavigate();
     const [questions, setQuestions] = useState<Question[]>([]);
 
-    useEffect(() => {
-        if (quizId) {
-            loadQuiz();
-        }
-    }, [quizId]);
-
     const loadQuiz = async () => {
+        if (!quizId) return;
         try {
-            setLoading(true);
-            const loadedQuiz = await quizService.getQuiz(quizId!);
+            const loadedQuiz = await quizService.getQuiz(quizId);
             setQuiz(loadedQuiz);
             setQuestions(loadedQuiz.questions || []);
         } catch (error) {
@@ -55,6 +49,12 @@ export const QuizForm: React.FC<QuizFormProps> = ({ quizId, onSave }) => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (quizId) {
+            loadQuiz();
+        }
+    }, [quizId, loadQuiz]);
 
     const handleQuizChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;

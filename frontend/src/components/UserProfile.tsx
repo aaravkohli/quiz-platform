@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { User } from '../types/quiz';
 import { authService } from '../services/api';
 
