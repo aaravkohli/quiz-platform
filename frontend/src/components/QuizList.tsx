@@ -147,12 +147,26 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
                                                     </button>
                                                 )}
                                                 {quiz.isPublished && (
-                                                    <Link
-                                                        to={`/quiz-attempts/${quiz.id}`}
-                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                                    >
-                                                        View Attempts
-                                                    </Link>
+                                                    <>
+                                                        <Link
+                                                            to={`/quiz-attempts/${quiz.id}`}
+                                                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                        >
+                                                            View Attempts
+                                                        </Link>
+                                                        <Link
+                                                            to={`/quiz-analytics/${quiz.id}`}
+                                                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                                        >
+                                                            Analytics
+                                                        </Link>
+                                                        <Link
+                                                            to={`/quiz-report/${quiz.id}`}
+                                                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                                                        >
+                                                            Report
+                                                        </Link>
+                                                    </>
                                                 )}
                                             </>
                                         ) : (

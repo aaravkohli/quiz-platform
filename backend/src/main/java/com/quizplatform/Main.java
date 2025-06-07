@@ -154,6 +154,75 @@ public class Main {
                 ctx.status(401).json(Map.of("error", "Invalid or expired token"));
             }
         });
+
+        // New endpoint for quiz analytics
+        app.get("/api/quizzes/{id}/analytics", ctx -> {
+            System.out.println("=== Quiz Analytics Route ===");
+            System.out.println("Request path: " + ctx.path());
+            System.out.println("Quiz ID: " + ctx.pathParam("id"));
+            System.out.println("Auth header: " + ctx.header("Authorization"));
+            try {
+                // First verify authentication
+                String token = ctx.header("Authorization");
+                if (token == null || !token.startsWith("Bearer ")) {
+                    ctx.status(401).json(Map.of("error", "Authentication required"));
+                    return;
+                }
+                token = token.substring(7);
+                SecurityUtils.verifyToken(token);
+                Long userId = SecurityUtils.getUserIdFromToken(token);
+                User.UserRole role = SecurityUtils.getRoleFromToken(token);
+                System.out.println("User ID: " + userId);
+                System.out.println("User Role: " + role);
+                if (role != User.UserRole.INSTRUCTOR) {
+                    ctx.status(403).json(Map.of("error", "Instructor access required"));
+                    return;
+                }
+                // Set user context
+                ctx.attribute("userId", userId);
+                ctx.attribute("userRole", role);
+                // Call the controller method
+                quizController.getQuizAnalytics(ctx);
+            } catch (Exception e) {
+                e.printStackTrace();
+                ctx.status(401).json(Map.of("error", "Invalid or expired token"));
+            }
+        });
+
+        // New endpoint for detailed quiz report
+        app.get("/api/quizzes/{id}/report", ctx -> {
+            System.out.println("=== Quiz Report Route ===");
+            System.out.println("Request path: " + ctx.path());
+            System.out.println("Quiz ID: " + ctx.pathParam("id"));
+            System.out.println("Auth header: " + ctx.header("Authorization"));
+            try {
+                // First verify authentication
+                String token = ctx.header("Authorization");
+                if (token == null || !token.startsWith("Bearer ")) {
+                    ctx.status(401).json(Map.of("error", "Authentication required"));
+                    return;
+                }
+                token = token.substring(7);
+                SecurityUtils.verifyToken(token);
+                Long userId = SecurityUtils.getUserIdFromToken(token);
+                User.UserRole role = SecurityUtils.getRoleFromToken(token);
+                System.out.println("User ID: " + userId);
+                System.out.println("User Role: " + role);
+                if (role != User.UserRole.INSTRUCTOR) {
+                    ctx.status(403).json(Map.of("error", "Instructor access required"));
+                    return;
+                }
+                // Set user context
+                ctx.attribute("userId", userId);
+                ctx.attribute("userRole", role);
+                // Call the controller method
+                quizController.generateQuizReport(ctx);
+            } catch (Exception e) {
+                e.printStackTrace();
+                ctx.status(401).json(Map.of("error", "Invalid or expired token"));
+            }
+        });
+
         // Quiz submission routes
         app.post("/api/quizzes/{id}/start", quizController::startQuiz, User.UserRole.STUDENT);
         app.post("/api/quizzes/{id}/submit", quizController::submitQuiz, User.UserRole.STUDENT);

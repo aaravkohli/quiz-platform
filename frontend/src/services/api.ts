@@ -234,4 +234,18 @@ export const quizService = {
         });
         return handleResponse(response);
     },
+
+    getQuizAnalytics: async (id: number): Promise<any> => {
+        const response = await fetch(`${baseURL}/quizzes/${id}/analytics`, {
+            headers: getAuthHeader(),
+        });
+        return handleResponse(response);
+    },
+
+    getQuizReport: async (id: number): Promise<any> => {
+        const response = await fetch(`${baseURL}/quizzes/${id}/report`, {
+            headers: getAuthHeader(),
+        });
+        return handleResponse(response);
+    },
 };

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.ArrayList;
 
 public class QuizController extends BaseController {
     private final QuizRepository quizRepository;
@@ -382,6 +383,111 @@ public class QuizController extends BaseController {
         } catch (Exception e) {
             e.printStackTrace();
             errorResponse(ctx, 500, "Error getting quiz attempts: " + e.getMessage());
+        }
+    }
+
+    public void getQuizAnalytics(Context ctx) {
+        try {
+            Long quizId = Long.parseLong(ctx.pathParam("id"));
+            Long instructorId = getCurrentUserId(ctx);
+            User.UserRole userRole = (User.UserRole) ctx.attribute("userRole");
+            
+            System.out.println("=== Quiz Analytics Debug ===");
+            System.out.println("Request path: " + ctx.path());
+            System.out.println("Quiz ID: " + quizId);
+            System.out.println("Instructor ID: " + instructorId);
+            System.out.println("User Role: " + userRole);
+            
+            // Verify quiz ownership
+            Quiz quiz = quizRepository.findById(quizId).orElse(null);
+            if (quiz == null) {
+                System.out.println("Quiz " + quizId + " not found");
+                errorResponse(ctx, 404, "Quiz not found");
+                return;
+            }
+            
+            if (!quiz.getInstructorId().equals(instructorId)) {
+                System.out.println("Permission denied: instructor " + instructorId + " does not own quiz " + quizId);
+                errorResponse(ctx, 403, "You don't have permission to view analytics for this quiz");
+                return;
+            }
+            
+            List<QuizSubmission> submissions = submissionRepository.findByQuizId(quizId);
+            System.out.println("Found " + submissions.size() + " submissions for quiz " + quizId);
+            
+            // Calculate statistics
+            double avgScore = submissions.stream().mapToInt(QuizSubmission::getScore).average().orElse(0.0);
+            int totalAttempts = submissions.size();
+            long completedAttempts = submissions.stream().filter(s -> s.getCompletedAt() != null).count();
+            double completionRate = totalAttempts > 0 ? (double) completedAttempts / totalAttempts : 0.0;
+            
+            // Calculate average time spent (in minutes)
+            double avgTimeSpent = submissions.stream()
+                .filter(s -> s.getStartedAt() != null && s.getCompletedAt() != null)
+                .mapToDouble(s -> java.time.Duration.between(s.getStartedAt(), s.getCompletedAt()).toMinutes())
+                .average()
+                .orElse(0.0);
+            
+            Map<String, Object> analytics = new HashMap<>();
+            analytics.put("quizId", quizId);
+            analytics.put("averageScore", avgScore);
+            analytics.put("totalAttempts", totalAttempts);
+            analytics.put("completionRate", completionRate);
+            analytics.put("averageTimeSpentMinutes", avgTimeSpent);
+            
+            jsonResponse(ctx, analytics);
+        } catch (Exception e) {
+            e.printStackTrace();
+            errorResponse(ctx, 500, "Error getting quiz analytics: " + e.getMessage());
+        }
+    }
+
+    public void generateQuizReport(Context ctx) {
+        try {
+            Long quizId = Long.parseLong(ctx.pathParam("id"));
+            Long instructorId = getCurrentUserId(ctx);
+            User.UserRole userRole = (User.UserRole) ctx.attribute("userRole");
+            
+            System.out.println("=== Quiz Report Debug ===");
+            System.out.println("Request path: " + ctx.path());
+            System.out.println("Quiz ID: " + quizId);
+            System.out.println("Instructor ID: " + instructorId);
+            System.out.println("User Role: " + userRole);
+            
+            // Verify quiz ownership
+            Quiz quiz = quizRepository.findById(quizId).orElse(null);
+            if (quiz == null) {
+                System.out.println("Quiz " + quizId + " not found");
+                errorResponse(ctx, 404, "Quiz not found");
+                return;
+            }
+            
+            if (!quiz.getInstructorId().equals(instructorId)) {
+                System.out.println("Permission denied: instructor " + instructorId + " does not own quiz " + quizId);
+                errorResponse(ctx, 403, "You don't have permission to view the report for this quiz");
+                return;
+            }
+            
+            List<QuizSubmission> submissions = submissionRepository.findByQuizId(quizId);
+            System.out.println("Found " + submissions.size() + " submissions for quiz " + quizId);
+            
+            List<Map<String, Object>> reportData = new ArrayList<>();
+            for (QuizSubmission submission : submissions) {
+                Map<String, Object> submissionData = new HashMap<>();
+                submissionData.put("submissionId", submission.getId());
+                submissionData.put("studentId", submission.getStudentId());
+                submissionData.put("answers", submission.getAnswers());
+                submissionData.put("score", submission.getScore());
+                submissionData.put("startedAt", submission.getStartedAt());
+                submissionData.put("completedAt", submission.getCompletedAt());
+                submissionData.put("submittedAt", submission.getSubmittedAt());
+                reportData.add(submissionData);
+            }
+            
+            jsonResponse(ctx, reportData);
+        } catch (Exception e) {
+            e.printStackTrace();
+            errorResponse(ctx, 500, "Error generating quiz report: " + e.getMessage());
         }
     }
 } 

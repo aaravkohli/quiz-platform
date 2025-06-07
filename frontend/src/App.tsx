@@ -9,6 +9,8 @@ import { authService } from './services/api';
 import { User } from './types/quiz';
 import { QuizSubmissionSummary } from './components/QuizSubmissionSummary';
 import QuizAttempts from './components/QuizAttempts';
+import { QuizAnalytics } from './components/QuizAnalytics';
+import { QuizReport } from './components/QuizReport';
 
 const QuizTakerWrapper = () => {
     const { id } = useParams();
@@ -212,6 +214,22 @@ const App = () => {
                             element={
                                 <ProtectedRoute requireInstructor>
                                     <QuizAttempts />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/quiz-analytics/:id"
+                            element={
+                                <ProtectedRoute>
+                                    <QuizAnalytics />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/quiz-report/:id"
+                            element={
+                                <ProtectedRoute>
+                                    <QuizReport />
                                 </ProtectedRoute>
                             }
                         />
