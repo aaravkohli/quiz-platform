@@ -243,12 +243,28 @@ public class Main {
     }
 
     private static void runMigrations() {
-        Flyway flyway = Flyway.configure()
-            .dataSource(dataSource)
-            .locations("classpath:db/migration")
-            .baselineOnMigrate(true)
-            .load();
-        flyway.migrate();
+        try {
+            Flyway flyway = Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .baselineOnMigrate(true)
+                .outOfOrder(true)
+                .validateOnMigrate(false)
+                .cleanDisabled(false)  // Enable clean operation
+                .load();
+            
+            // First repair any issues
+            flyway.repair();
+            
+            // Then run migrations
+            flyway.migrate();
+            
+            System.out.println("Database migrations completed successfully");
+        } catch (Exception e) {
+            System.err.println("Error running migrations: " + e.getMessage());
+            e.printStackTrace();
+            System.exit(1);
+        }
     }
 
     public static HikariDataSource getDataSource() {

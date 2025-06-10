@@ -1,6 +1,7 @@
 package com.quizplatform.models;
 
 import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Data
 public class Answer {
@@ -8,5 +9,7 @@ public class Answer {
     private Long questionId;
     private String answerText;
     private Boolean isCorrect;
-    private Integer order;
+    
+    @JsonProperty("order")
+    private Integer answerOrder;
 } 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Quiz } from '../types/quiz';
 import { quizService } from '../services/api';
 import { User } from '../types/quiz';
+import { useAuth } from '../contexts/AuthContext';
 
 interface QuizListProps {
     user: User;
@@ -15,6 +16,7 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
     const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
     const [showForceDelete, setShowForceDelete] = useState(false);
     const [forceDeleteQuiz, setForceDeleteQuiz] = useState<Quiz | null>(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         loadQuizzes();
@@ -42,10 +44,22 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
                 setForceDeleteQuiz(quizToDelete);
                 return;
             }
+            // If we get here, the delete was successful
             setQuizzes(quizzes.filter(quiz => quiz.id !== quizId));
-        } catch (error) {
-            setError('Error deleting quiz. Please try again.');
+            setQuizToDelete(null);
+            setShowForceDelete(false);
+            setForceDeleteQuiz(null);
+        } catch (error: any) {
+            if (error.status === 409 && error.data?.hasSubmissions) {
+                setShowForceDelete(true);
+                setForceDeleteQuiz(quizToDelete);
+                return;
+            }
             console.error('Error deleting quiz:', error);
+            setError('Error deleting quiz. Please try again.');
+            setQuizToDelete(null);
+            setShowForceDelete(false);
+            setForceDeleteQuiz(null);
         }
     };
 
@@ -55,17 +69,28 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
             setQuizzes(quizzes.filter(quiz => quiz.id !== quizId));
             setShowForceDelete(false);
             setForceDeleteQuiz(null);
+            setQuizToDelete(null);
         } catch (error) {
-            setError('Error force deleting quiz. Please try again.');
             console.error('Error force deleting quiz:', error);
+            setError('Error force deleting quiz. Please try again.');
+            setShowForceDelete(false);
+            setForceDeleteQuiz(null);
+            setQuizToDelete(null);
         }
     };
 
     const handlePublishQuiz = async (quizId: number) => {
         try {
-            await quizService.publishQuiz(quizId);
+            // First get the quiz to check if it has questions
+            const quiz = await quizService.getQuiz(quizId);
+            if (!quiz.questions || quiz.questions.length === 0) {
+                setError('Cannot publish quiz: Quiz must have at least one question.');
+                return;
+            }
+
+            const updatedQuiz = await quizService.publishQuiz(quizId);
             setQuizzes(quizzes.map(quiz => 
-                quiz.id === quizId ? { ...quiz, isPublished: true } : quiz
+                quiz.id === quizId ? updatedQuiz : quiz
             ));
         } catch (error) {
             setError('Error publishing quiz. Please try again.');
@@ -74,13 +99,22 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
     };
 
     if (loading) {
-        return <div className="text-center">Loading quizzes...</div>;
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Loading quizzes...</p>
+                </div>
+            </div>
+        );
     }
 
     if (error) {
         return (
-            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-                {error}
+            <div className="max-w-3xl mx-auto mt-8">
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+                    {error}
+                </div>
             </div>
         );
     }
@@ -90,11 +124,11 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
         : quizzes.filter(quiz => quiz.isPublished === true);
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="flex justify-between items-center mb-8">
+                <h1 className="text-3xl font-bold text-gray-900">
                     {user.role === 'INSTRUCTOR' ? 'My Quizzes' : 'Available Quizzes'}
-                </h2>
+                </h1>
                 {user.role === 'INSTRUCTOR' && (
                     <Link
                         to="/create-quiz"
@@ -114,70 +148,74 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
             ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {filteredQuizzes.map(quiz => (
-                        <div key={quiz.id} className="bg-white shadow rounded-lg overflow-hidden">
-                            <div className="p-6">
-                                <h3 className="text-lg font-medium text-gray-900">{quiz.title}</h3>
-                                <p className="mt-2 text-sm text-gray-500">{quiz.description}</p>
-                                <div className="mt-4 flex items-center justify-between">
-                                    <div className="text-sm text-gray-500">
-                                        {quiz.questions?.length || 0} questions
-                                        {quiz.timeLimit && ` • ${quiz.timeLimit} minutes`}
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        {user.role === 'INSTRUCTOR' ? (
-                                            <>
-                                                <Link
-                                                    to={`/edit-quiz/${quiz.id}`}
-                                                    className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                                >
-                                                    Edit
-                                                </Link>
-                                                <button
-                                                    onClick={() => setQuizToDelete(quiz)}
-                                                    className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                                                >
-                                                    Delete
-                                                </button>
-                                                {!quiz.isPublished && (
-                                                    <button
-                                                        onClick={() => handlePublishQuiz(quiz.id)}
-                                                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                                                    >
-                                                        Publish
-                                                    </button>
-                                                )}
-                                                {quiz.isPublished && (
-                                                    <>
-                                                        <Link
-                                                            to={`/quiz-attempts/${quiz.id}`}
-                                                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                                        >
-                                                            View Attempts
-                                                        </Link>
-                                                        <Link
-                                                            to={`/quiz-analytics/${quiz.id}`}
-                                                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                                                        >
-                                                            Analytics
-                                                        </Link>
-                                                        <Link
-                                                            to={`/quiz-report/${quiz.id}`}
-                                                            className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                                                        >
-                                                            Report
-                                                        </Link>
-                                                    </>
-                                                )}
-                                            </>
-                                        ) : (
+                        <div key={quiz.id} className="bg-white overflow-hidden shadow rounded-lg">
+                            <div className="px-4 py-5 sm:p-6">
+                                <h3 className="text-lg font-medium text-gray-900 mb-2">{quiz.title}</h3>
+                                <p className="text-gray-500 mb-4">{quiz.description}</p>
+                                
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {quiz.timeLimit} minutes
+                                    </span>
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                        quiz.isPublished 
+                                            ? 'bg-green-100 text-green-800' 
+                                            : 'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                        {quiz.isPublished ? 'Published' : 'Draft'}
+                                    </span>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2">
+                                    {user.role === 'INSTRUCTOR' ? (
+                                        <>
                                             <Link
-                                                to={`/take-quiz/${quiz.id}`}
-                                                className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                                to={`/edit-quiz/${quiz.id}`}
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                             >
-                                                Take Quiz
+                                                Edit
                                             </Link>
-                                        )}
-                                    </div>
+                                            <button
+                                                onClick={() => setQuizToDelete(quiz)}
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                            >
+                                                Delete
+                                            </button>
+                                            {!quiz.isPublished && (
+                                                <button
+                                                    onClick={() => handlePublishQuiz(quiz.id!)}
+                                                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                                >
+                                                    Publish
+                                                </button>
+                                            )}
+                                            <Link
+                                                to={`/quiz-attempts/${quiz.id}`}
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                                            >
+                                                View Attempts
+                                            </Link>
+                                            <Link
+                                                to={`/quiz-analytics/${quiz.id}`}
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                            >
+                                                Analytics
+                                            </Link>
+                                            <Link
+                                                to={`/quiz-report/${quiz.id}`}
+                                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                            >
+                                                Report
+                                            </Link>
+                                        </>
+                                    ) : (
+                                        <Link
+                                            to={`/take-quiz/${quiz.id}`}
+                                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        >
+                                            Take Quiz
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -200,8 +238,10 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
                             <button
                                 className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
                                 onClick={async () => {
-                                    await handleDeleteQuiz(quizToDelete.id);
-                                    setQuizToDelete(null);
+                                    if (quizToDelete?.id) {
+                                        await handleDeleteQuiz(quizToDelete.id);
+                                        setQuizToDelete(null);
+                                    }
                                 }}
                             >
                                 Delete
@@ -225,8 +265,10 @@ export const QuizList: React.FC<QuizListProps> = ({ user }) => {
                             <button
                                 className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
                                 onClick={async () => {
-                                    await handleForceDeleteQuiz(forceDeleteQuiz.id);
-                                    setQuizToDelete(null);
+                                    if (forceDeleteQuiz?.id) {
+                                        await handleForceDeleteQuiz(forceDeleteQuiz.id);
+                                        setQuizToDelete(null);
+                                    }
                                 }}
                             >
                                 Delete Anyway

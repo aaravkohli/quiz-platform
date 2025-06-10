@@ -17,7 +17,7 @@ public class QuestionRepository implements BaseRepository<Question> {
 
     @Override
     public Question create(Question question) {
-        String sql = "INSERT INTO questions (quiz_id, question_text, type, points, question_order) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO questions (quiz_id, question_text, question_type, points, question_order) VALUES (?, ?, ?, ?, ?)";
         try (Connection connection = Main.getDataSource().getConnection();
              PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setLong(1, question.getQuizId());
@@ -33,6 +33,29 @@ public class QuestionRepository implements BaseRepository<Question> {
                     question.setId(rs.getLong(1));
                 }
             }
+
+            // Save answers if provided
+            if (question.getAnswers() != null && !question.getAnswers().isEmpty()) {
+                String answerSql = "INSERT INTO answers (question_id, answer_text, is_correct, answer_order) VALUES (?, ?, ?, ?)";
+                try (PreparedStatement answerStmt = connection.prepareStatement(answerSql, Statement.RETURN_GENERATED_KEYS)) {
+                    for (int i = 0; i < question.getAnswers().size(); i++) {
+                        Answer answer = question.getAnswers().get(i);
+                        answer.setQuestionId(question.getId());
+                        answerStmt.setLong(1, question.getId());
+                        answerStmt.setString(2, answer.getAnswerText());
+                        answerStmt.setBoolean(3, answer.getIsCorrect());
+                        answerStmt.setInt(4, answer.getAnswerOrder() != null ? answer.getAnswerOrder() : i + 1);
+                        answerStmt.executeUpdate();
+
+                        try (ResultSet answerRs = answerStmt.getGeneratedKeys()) {
+                            if (answerRs.next()) {
+                                answer.setId(answerRs.getLong(1));
+                            }
+                        }
+                    }
+                }
+            }
+
             return question;
         } catch (SQLException e) {
             throw new RuntimeException("Error creating question", e);
@@ -71,8 +94,8 @@ public class QuestionRepository implements BaseRepository<Question> {
             try (ResultSet rs = stmt.executeQuery()) {
                 Question currentQuestion = null;
                 while (rs.next()) {
-                    long questionId = rs.getLong("id");
-                    if (currentQuestion == null || currentQuestion.getId() != questionId) {
+                    Long questionId = rs.getLong("id");
+                    if (currentQuestion == null || !currentQuestion.getId().equals(questionId)) {
                         if (currentQuestion != null) {
                             questions.add(currentQuestion);
                         }
@@ -80,7 +103,7 @@ public class QuestionRepository implements BaseRepository<Question> {
                         currentQuestion.setId(questionId);
                         currentQuestion.setQuizId(quizId);
                         currentQuestion.setQuestionText(rs.getString("question_text"));
-                        currentQuestion.setType(Question.QuestionType.valueOf(rs.getString("type")));
+                        currentQuestion.setType(Question.QuestionType.valueOf(rs.getString("question_type")));
                         currentQuestion.setPoints(rs.getInt("points"));
                         currentQuestion.setOrder(rs.getInt("question_order"));
                         currentQuestion.setAnswers(new ArrayList<>());
@@ -94,7 +117,7 @@ public class QuestionRepository implements BaseRepository<Question> {
                         if (includeCorrectAnswers) {
                             answer.setIsCorrect(rs.getBoolean("is_correct"));
                         }
-                        answer.setOrder(rs.getInt("answer_order"));
+                        answer.setAnswerOrder(rs.getInt("answer_order"));
                         currentQuestion.getAnswers().add(answer);
                     }
                 }
@@ -161,7 +184,7 @@ public class QuestionRepository implements BaseRepository<Question> {
         question.setId(rs.getLong("id"));
         question.setQuizId(rs.getLong("quiz_id"));
         question.setQuestionText(rs.getString("question_text"));
-        question.setType(Question.QuestionType.valueOf(rs.getString("type")));
+        question.setType(Question.QuestionType.valueOf(rs.getString("question_type")));
         question.setPoints(rs.getInt("points"));
         question.setOrder(rs.getInt("question_order"));
         return question;

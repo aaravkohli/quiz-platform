@@ -2,9 +2,15 @@
 /Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/controllers/BaseController.java
 /Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/controllers/QuizController.java
 /Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/controllers/UserController.java
+/Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/dao/QuestionDAO.java
+/Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/dao/QuestionMapper.java
+/Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/dao/QuestionPoolDAO.java
+/Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/dao/QuestionPoolMapper.java
 /Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/middleware/AuthMiddleware.java
 /Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/models/Answer.java
 /Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/models/Question.java
+/Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/models/QuestionOption.java
+/Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/models/QuestionPool.java
 /Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/models/Quiz.java
 /Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/models/QuizAttempt.java
 /Users/aaravkohli/Downloads/quizplatform-new-main-111/backend/src/main/java/com/quizplatform/models/QuizSubmission.java

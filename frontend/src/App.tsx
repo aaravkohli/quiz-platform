@@ -158,6 +158,10 @@ const App = () => {
                             }
                         />
                         <Route
+                            path="/quizzes"
+                            element={<Navigate to="/" replace />}
+                        />
+                        <Route
                             path="/login"
                             element={
                                 user ? (
@@ -181,7 +185,7 @@ const App = () => {
                             path="/create-quiz"
                             element={
                                 <ProtectedRoute requireInstructor>
-                                    <QuizForm onSave={() => {}} />
+                                    <QuizForm />
                                 </ProtectedRoute>
                             }
                         />
@@ -189,7 +193,7 @@ const App = () => {
                             path="/edit-quiz/:id"
                             element={
                                 <ProtectedRoute requireInstructor>
-                                    <QuizForm onSave={() => {}} />
+                                    <QuizForm />
                                 </ProtectedRoute>
                             }
                         />

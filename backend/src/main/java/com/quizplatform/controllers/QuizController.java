@@ -1,18 +1,15 @@
 package com.quizplatform.controllers;
 
-import com.quizplatform.models.Quiz;
-import com.quizplatform.models.Question;
-import com.quizplatform.models.User;
-import com.quizplatform.models.QuizSubmission;
-import com.quizplatform.repositories.QuizRepository;
-import com.quizplatform.repositories.QuizSubmissionRepository;
+import com.quizplatform.models.*;
+import com.quizplatform.repositories.*;
+import com.quizplatform.utils.SecurityUtils;
 import io.javalin.http.Context;
+import io.javalin.http.Handler;
+import java.util.*;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.ArrayList;
 
 public class QuizController extends BaseController {
     private final QuizRepository quizRepository;
@@ -37,6 +34,32 @@ public class QuizController extends BaseController {
             }
 
             Quiz quiz = parseBody(ctx, Quiz.class);
+            System.out.println("Received quiz data: " + quiz);
+            System.out.println("Questions in received quiz: " + (quiz.getQuestions() != null ? quiz.getQuestions().size() : 0));
+            
+            // Validate quiz has questions
+            if (quiz.getQuestions() == null || quiz.getQuestions().isEmpty()) {
+                errorResponse(ctx, 400, "Quiz must have at least one question");
+                return;
+            }
+
+            // Validate each question has answers
+            for (Question question : quiz.getQuestions()) {
+                System.out.println("Processing question: " + question.getQuestionText());
+                System.out.println("Question type: " + question.getType());
+                System.out.println("Answers for question: " + (question.getAnswers() != null ? question.getAnswers().size() : 0));
+                
+                if (question.getAnswers() == null || question.getAnswers().isEmpty()) {
+                    errorResponse(ctx, 400, "Each question must have at least one answer");
+                    return;
+                }
+                if ((question.getType() == Question.QuestionType.MULTIPLE_CHOICE || question.getType() == Question.QuestionType.TRUE_FALSE) 
+                    && !question.getAnswers().stream().anyMatch(Answer::getIsCorrect)) {
+                    errorResponse(ctx, 400, "Multiple choice and true/false questions must have one correct answer");
+                    return;
+                }
+            }
+
             quiz.setInstructorId(getCurrentUserId(ctx));
             quiz.setIsPublished(false);
             
@@ -45,8 +68,18 @@ public class QuizController extends BaseController {
                 quiz.setTimeLimit(30); // Default 30 minutes
             }
             
+            System.out.println("Creating quiz with data: " + quiz);
             Quiz createdQuiz = quizRepository.create(quiz);
-            jsonResponse(ctx, createdQuiz);
+            System.out.println("Created quiz: " + createdQuiz);
+            System.out.println("Questions in created quiz: " + (createdQuiz.getQuestions() != null ? createdQuiz.getQuestions().size() : 0));
+            
+            // Fetch the complete quiz with questions before sending response
+            Optional<Quiz> completeQuiz = quizRepository.findByIdWithAnswers(createdQuiz.getId());
+            if (completeQuiz.isPresent()) {
+                jsonResponse(ctx, completeQuiz.get());
+            } else {
+                jsonResponse(ctx, createdQuiz);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             errorResponse(ctx, 500, "Error creating quiz: " + e.getMessage());
@@ -184,19 +217,42 @@ public class QuizController extends BaseController {
 
     public void publishQuiz(Context ctx) {
         try {
+            // Only instructors can publish quizzes
+            User.UserRole userRole = (User.UserRole) ctx.attribute("userRole");
+            if (userRole != User.UserRole.INSTRUCTOR) {
+                errorResponse(ctx, 403, "Instructor access required");
+                return;
+            }
+
             Long quizId = Long.parseLong(ctx.pathParam("id"));
-            Quiz quiz = quizRepository.findById(quizId).orElse(null);
-            
-            if (quiz == null) {
+            Optional<Quiz> quizOpt = quizRepository.findByIdWithAnswers(quizId);
+
+            if (!quizOpt.isPresent()) {
                 errorResponse(ctx, 404, "Quiz not found");
                 return;
             }
-            
-            if (!quiz.getInstructorId().equals(getCurrentUserId(ctx))) {
-                errorResponse(ctx, 403, "You don't have permission to publish this quiz");
+
+            Quiz quiz = quizOpt.get();
+
+            // Validate that quiz has questions
+            if (quiz.getQuestions() == null || quiz.getQuestions().isEmpty()) {
+                errorResponse(ctx, 400, "Cannot publish quiz: Quiz must have at least one question");
                 return;
             }
-            
+
+            // Validate each question has answers
+            for (Question question : quiz.getQuestions()) {
+                if (question.getAnswers() == null || question.getAnswers().isEmpty()) {
+                    errorResponse(ctx, 400, "Cannot publish quiz: Each question must have at least one answer");
+                    return;
+                }
+                if ((question.getType() == Question.QuestionType.MULTIPLE_CHOICE || question.getType() == Question.QuestionType.TRUE_FALSE) 
+                    && !question.getAnswers().stream().anyMatch(Answer::getIsCorrect)) {
+                    errorResponse(ctx, 400, "Cannot publish quiz: Multiple choice and true/false questions must have one correct answer");
+                    return;
+                }
+            }
+
             quiz.setIsPublished(true);
             Quiz updatedQuiz = quizRepository.update(quiz);
             jsonResponse(ctx, updatedQuiz);
@@ -275,24 +331,43 @@ public class QuizController extends BaseController {
             @SuppressWarnings("unchecked")
             Map<String, Object> submittedAnswers = (Map<String, Object>) body.get("answers");
             
-            // Convert string keys to Long and Integer values to Long
-            Map<Long, Long> answers = new HashMap<>();
+            // Convert string keys to Long and handle both string and number values
+            Map<Long, Object> answers = new HashMap<>();
             for (Map.Entry<String, Object> entry : submittedAnswers.entrySet()) {
                 Long questionId = Long.parseLong(entry.getKey());
-                Long answerId = ((Number) entry.getValue()).longValue();
-                answers.put(questionId, answerId);
+                Object value = entry.getValue();
+                
+                // Convert non-numeric values to strings
+                if (value instanceof String) {
+                    answers.put(questionId, value);
+                } else if (value instanceof Number) {
+                    answers.put(questionId, value);
+                } else {
+                    answers.put(questionId, value.toString());
+                }
             }
             submission.setAnswers(answers);
 
             // Calculate score
             int totalScore = 0;
             for (Question question : quiz.get().getQuestions()) {
-                Long selectedAnswerId = answers.get(question.getId());
-                if (selectedAnswerId != null) {
-                    boolean isCorrect = question.getAnswers().stream()
-                        .anyMatch(a -> a.getId().equals(selectedAnswerId) && a.getIsCorrect());
-                    if (isCorrect) {
+                Object selectedAnswer = answers.get(question.getId());
+                if (selectedAnswer != null) {
+                    if (question.getType() == Question.QuestionType.SHORT_ANSWER) {
+                        // For short answer questions, we'll need to implement text comparison
+                        // For now, we'll just give points if an answer was provided
                         totalScore += question.getPoints();
+                    } else {
+                        // For multiple choice and true/false questions
+                        Long selectedAnswerId = selectedAnswer instanceof Long ? (Long) selectedAnswer : 
+                                              selectedAnswer instanceof String ? Long.parseLong((String) selectedAnswer) : null;
+                        if (selectedAnswerId != null) {
+                            boolean isCorrect = question.getAnswers().stream()
+                                .anyMatch(a -> a.getId().equals(selectedAnswerId) && a.getIsCorrect());
+                            if (isCorrect) {
+                                totalScore += question.getPoints();
+                            }
+                        }
                     }
                 }
             }

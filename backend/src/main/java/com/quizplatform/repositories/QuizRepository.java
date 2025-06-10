@@ -18,6 +18,10 @@ public class QuizRepository implements BaseRepository<Quiz> {
 
     @Override
     public Quiz create(Quiz quiz) {
+        System.out.println("QuizRepository.create() - Starting quiz creation");
+        System.out.println("Quiz data: " + quiz);
+        System.out.println("Questions count: " + (quiz.getQuestions() != null ? quiz.getQuestions().size() : 0));
+
         String sql = "INSERT INTO quizzes (title, description, instructor_id, time_limit, is_published, created_at, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)";
         try (Connection conn = Main.getDataSource().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -31,16 +35,37 @@ public class QuizRepository implements BaseRepository<Quiz> {
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
                     quiz.setId(rs.getLong(1));
+                    System.out.println("Created quiz with ID: " + quiz.getId());
                 }
             }
 
-            // Fetch the created quiz to get timestamps
+            // Save questions and answers
+            if (quiz.getQuestions() != null) {
+                System.out.println("Saving " + quiz.getQuestions().size() + " questions");
+                for (int i = 0; i < quiz.getQuestions().size(); i++) {
+                    Question question = quiz.getQuestions().get(i);
+                    System.out.println("Saving question " + (i + 1) + ": " + question.getQuestionText());
+                    question.setQuizId(quiz.getId());
+                    question.setOrder(i + 1);
+                    Question savedQuestion = questionRepository.create(question);
+                    System.out.println("Saved question with ID: " + savedQuestion.getId());
+                    quiz.getQuestions().set(i, savedQuestion);
+                }
+            }
+
+            // Fetch the complete quiz with questions
             String selectSql = "SELECT * FROM quizzes WHERE id = ?";
             try (PreparedStatement selectStmt = conn.prepareStatement(selectSql)) {
                 selectStmt.setLong(1, quiz.getId());
                 try (ResultSet rs = selectStmt.executeQuery()) {
                     if (rs.next()) {
-                        return mapResultSetToQuiz(rs);
+                        Quiz createdQuiz = mapResultSetToQuiz(rs);
+                        // Fetch questions with answers
+                        System.out.println("Fetching questions for quiz ID: " + quiz.getId());
+                        List<Question> questions = questionRepository.findByQuizId(quiz.getId(), true);
+                        System.out.println("Found " + questions.size() + " questions");
+                        createdQuiz.setQuestions(questions);
+                        return createdQuiz;
                     }
                 }
             }
@@ -233,7 +258,7 @@ public class QuizRepository implements BaseRepository<Quiz> {
     }
 
     public Question addQuestion(Question question) {
-        String sql = "INSERT INTO questions (quiz_id, question_text, type, points, question_order) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO questions (quiz_id, question_text, question_type, points, question_order) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = Main.getDataSource().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setLong(1, question.getQuizId());
@@ -259,7 +284,7 @@ public class QuizRepository implements BaseRepository<Quiz> {
                         answerStmt.setLong(1, question.getId());
                         answerStmt.setString(2, answer.getAnswerText());
                         answerStmt.setBoolean(3, answer.getIsCorrect());
-                        answerStmt.setInt(4, answer.getOrder() != null ? answer.getOrder() : i + 1); // Default to position in list if not provided
+                        answerStmt.setInt(4, answer.getAnswerOrder() != null ? answer.getAnswerOrder() : i + 1); // Default to position in list if not provided
                         answerStmt.executeUpdate();
 
                         try (ResultSet answerRs = answerStmt.getGeneratedKeys()) {
@@ -283,7 +308,7 @@ public class QuizRepository implements BaseRepository<Quiz> {
                         question.setId(rs.getLong("id"));
                         question.setQuizId(rs.getLong("quiz_id"));
                         question.setQuestionText(rs.getString("question_text"));
-                        question.setType(Question.QuestionType.valueOf(rs.getString("type")));
+                        question.setType(Question.QuestionType.valueOf(rs.getString("question_type")));
                         question.setPoints(rs.getInt("points"));
                         question.setOrder(rs.getInt("question_order"));
                         
@@ -295,7 +320,7 @@ public class QuizRepository implements BaseRepository<Quiz> {
                                 answer.setQuestionId(question.getId());
                                 answer.setAnswerText(rs.getString("answer_text"));
                                 answer.setIsCorrect(rs.getBoolean("is_correct"));
-                                answer.setOrder(rs.getInt("answer_order"));
+                                answer.setAnswerOrder(rs.getInt("answer_order"));
                                 answers.add(answer);
                             }
                         } while (rs.next());

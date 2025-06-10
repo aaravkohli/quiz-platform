@@ -20,21 +20,31 @@ api.interceptors.request.use((config) => {
 });
 
 const handleResponse = async (response: Response) => {
-    if (!response.ok) {
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch {
-            errorData = {};
-        }
-        
-        const error: any = new Error(errorData.message || 'An error occurred');
-        error.status = response.status;
-        error.data = errorData;
-        throw error;
-    }
+    console.log('API response status:', response.status);
+    
+    // Check if response is empty
     const text = await response.text();
-    return text ? JSON.parse(text) : {};
+    if (!text) {
+        if (!response.ok) {
+            throw {
+                status: response.status,
+                data: { message: 'Empty response from server' }
+            };
+        }
+        return null;
+    }
+    
+    // Parse the response text as JSON
+    const data = JSON.parse(text);
+    console.log('API response data:', data);
+    
+    if (!response.ok) {
+        throw {
+            status: response.status,
+            data: data
+        };
+    }
+    return data;
 };
 
 const getAuthHeader = (): Record<string, string> => {
@@ -112,6 +122,7 @@ export const authService = {
 export const quizService = {
     // Quiz Management
     createQuiz: async (quiz: Quiz): Promise<Quiz> => {
+        console.log('API createQuiz called with:', quiz);
         const response = await fetch(`${baseURL}/quizzes`, {
             method: 'POST',
             headers: {
@@ -120,7 +131,9 @@ export const quizService = {
             },
             body: JSON.stringify(quiz),
         });
-        return handleResponse(response);
+        const data = await handleResponse(response);
+        console.log('API createQuiz response:', data);
+        return data;
     },
 
     getQuizzes: async (): Promise<Quiz[]> => {
@@ -162,10 +175,16 @@ export const quizService = {
             headers: getAuthHeader(),
         });
         try {
-            return await handleResponse(response);
+            const data = await handleResponse(response);
+            // If response is empty but status is 204 (No Content) or 200 (OK), consider it successful
+            if (!data && (response.status === 204 || response.status === 200)) {
+                return { success: true };
+            }
+            return data;
         } catch (error: any) {
-            if (error.status === 409 && error.data?.hasSubmissions) {
-                return error.data;
+            // If we get a 409 Conflict, it means the quiz has submissions
+            if (error.status === 409) {
+                return { hasSubmissions: true };
             }
             throw error;
         }
@@ -176,7 +195,14 @@ export const quizService = {
             method: 'DELETE',
             headers: getAuthHeader(),
         });
-        return handleResponse(response);
+        try {
+            await handleResponse(response);
+        } catch (error: any) {
+            if (error.status === 409) {
+                throw new Error('Cannot force delete quiz with submissions');
+            }
+            throw error;
+        }
     },
 
     publishQuiz: async (id: number): Promise<Quiz> => {
@@ -209,15 +235,63 @@ export const quizService = {
         return handleResponse(response);
     },
 
-    submitQuiz: async (id: number, answers: Record<number, number>): Promise<QuizSubmission> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}/submit`, {
+    submitQuiz: async (quizId: number, answers: Record<number, number | string>): Promise<QuizSubmission> => {
+        // Get the quiz first to check question types
+        const quiz = await quizService.getQuiz(quizId);
+        
+        // Format answers based on question type
+        const formattedAnswers = Object.entries(answers).reduce((acc, [questionId, answer]) => {
+            const qId = parseInt(questionId, 10);
+            const question = quiz.questions?.find(q => q.id === qId);
+            
+            if (!question) {
+                return acc;
+            }
+
+            // Format answer based on question type
+            switch (question.type) {
+                case 'MULTIPLE_CHOICE':
+                case 'TRUE_FALSE':
+                    // These must be numbers (answer IDs)
+                    if (typeof answer === 'number') {
+                        acc[qId] = answer;
+                    } else if (typeof answer === 'string') {
+                        const numAnswer = parseInt(answer, 10);
+                        if (!isNaN(numAnswer)) {
+                            acc[qId] = numAnswer;
+                        }
+                    }
+                    break;
+                case 'SHORT_ANSWER':
+                    // For short answers, send the text
+                    acc[qId] = String(answer).trim();
+                    break;
+                default:
+                    acc[qId] = String(answer).trim();
+            }
+            return acc;
+        }, {} as Record<number, number | string>);
+
+        console.log('Submitting answers:', formattedAnswers);
+
+        const response = await fetch(`${baseURL}/quizzes/${quizId}/submit`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 ...getAuthHeader(),
             },
-            body: JSON.stringify({ answers }),
+            body: JSON.stringify({ answers: formattedAnswers }),
         });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Server error response:', errorData);
+            throw {
+                status: response.status,
+                data: errorData
+            };
+        }
+
         return handleResponse(response);
     },
 

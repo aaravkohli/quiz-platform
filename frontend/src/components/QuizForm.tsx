@@ -1,47 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Quiz, Question } from '../types/quiz';
+import { useNavigate, useParams } from 'react-router-dom';
 import { quizService } from '../services/api';
+import { Quiz, Question, Answer, QuestionType } from '../types/quiz';
 
-interface QuizFormProps {
-    quizId?: number;
-    onSave: () => void;
-}
-
-export const QuizForm: React.FC<QuizFormProps> = ({ quizId, onSave }) => {
+export const QuizForm: React.FC = () => {
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
     const [quiz, setQuiz] = useState<Quiz>({
-        id: -1, // Temporary ID for new quizzes
         title: '',
         description: '',
-        instructorId: 0,
-        isPublished: false,
-        questions: [],
+        timeLimit: 30,
+        questions: []
     });
-
-    const [newQuestion, setNewQuestion] = useState<Question>({
-        questionText: '',
-        type: 'MULTIPLE_CHOICE',
-        points: 1,
-        answers: [
-            { answerText: '', isCorrect: true, order: 1 },
-            { answerText: '', isCorrect: false, order: 2 },
-            { answerText: '', isCorrect: false, order: 3 },
-            { answerText: '', isCorrect: false, order: 4 }
-        ]
-    });
-
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
-    const navigate = useNavigate();
-    const [questions, setQuestions] = useState<Question[]>([]);
+
+    useEffect(() => {
+        if (id) {
+            loadQuiz();
+        }
+    }, [id]);
 
     const loadQuiz = async () => {
-        if (!quizId) return;
         try {
-            const loadedQuiz = await quizService.getQuiz(quizId);
-            setQuiz(loadedQuiz);
-            setQuestions(loadedQuiz.questions || []);
+            setLoading(true);
+            const data = await quizService.getQuiz(parseInt(id!));
+            // Ensure questions array is initialized and properly structured
+            const quizData = {
+                ...data,
+                questions: Array.isArray(data.questions) ? data.questions.map(q => ({
+                    ...q,
+                    answers: Array.isArray(q.answers) ? q.answers : []
+                })) : []
+            };
+            console.log('Loaded quiz data:', quizData);
+            setQuiz(quizData);
         } catch (error) {
             setError('Error loading quiz. Please try again.');
             console.error('Error loading quiz:', error);
@@ -50,288 +43,460 @@ export const QuizForm: React.FC<QuizFormProps> = ({ quizId, onSave }) => {
         }
     };
 
-    useEffect(() => {
-        if (quizId) {
-            loadQuiz();
-        }
-    }, [quizId, loadQuiz]);
-
-    const handleQuizChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setQuiz(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleQuestionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setNewQuestion(prev => ({
-            ...prev,
-            questionText: e.target.value
-        }));
-    };
-
-    const handleOptionChange = (index: number, value: string) => {
-        setNewQuestion(prev => ({
-            ...prev,
-            answers: prev.answers.map((answer, i) => 
-                i === index ? { ...answer, answerText: value } : answer
-            )
-        }));
-    };
-
-    const handleCorrectAnswerChange = (index: number) => {
-        setNewQuestion(prev => ({
-            ...prev,
-            answers: prev.answers.map((answer, i) => ({
-                ...answer,
-                isCorrect: i === index
-            }))
-        }));
-    };
-
-    const handleAddQuestion = () => {
-        if (!newQuestion.questionText || newQuestion.answers.some(answer => !answer.answerText)) {
-            setError('Please fill in all question fields.');
-            return;
-        }
-        setQuestions(prev => [...prev, newQuestion]);
-        setNewQuestion({
-            questionText: '',
-            type: 'MULTIPLE_CHOICE',
-            points: 1,
-            answers: [
-                { answerText: '', isCorrect: true, order: 1 },
-                { answerText: '', isCorrect: false, order: 2 },
-                { answerText: '', isCorrect: false, order: 3 },
-                { answerText: '', isCorrect: false, order: 4 }
-            ]
-        });
-    };
-
-    const handleRemoveQuestion = (index: number) => {
-        setQuestions(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleSave = async () => {
-        if (!quiz.title || !quiz.description) {
-            setError('Please fill in all required fields.');
-            return;
-        }
-        // Always include the last question if filled out
-        const isNewQuestionFilled = newQuestion.questionText && newQuestion.answers.every(a => a.answerText);
-        const questionsToSave = isNewQuestionFilled ? [...questions, newQuestion] : questions;
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         try {
             setLoading(true);
             setError(null);
-            setSuccess(null);
-            console.log('Saving quiz with questions:', questionsToSave);
-            let savedQuiz: Quiz;
-            if (quizId) {
-                savedQuiz = await quizService.updateQuiz(quizId, { ...quiz, questions: [] });
+
+            console.log('Current quiz state:', quiz);
+            console.log('Questions in quiz:', quiz.questions);
+
+            // Validate that quiz has at least one question
+            if (!quiz.questions || quiz.questions.length === 0) {
+                setError('Quiz must have at least one question.');
+                setLoading(false);
+                return;
+            }
+
+            // Ensure all questions have answers
+            const hasValidQuestions = quiz.questions.every(question => {
+                if (!question.answers || question.answers.length === 0) return false;
+                if (question.type === QuestionType.MULTIPLE_CHOICE || question.type === QuestionType.TRUE_FALSE) {
+                    return question.answers.some(answer => answer.isCorrect);
+                }
+                return true;
+            });
+
+            if (!hasValidQuestions) {
+                setError('All questions must have valid answers.');
+                setLoading(false);
+                return;
+            }
+
+            // Create a new quiz object with all required data
+            const quizData = {
+                ...quiz,
+                questions: quiz.questions.map((question, index) => ({
+                    ...question,
+                    quizId: id ? parseInt(id) : undefined,
+                    order: index + 1,
+                    answers: question.answers.map(answer => ({
+                        ...answer,
+                        answerText: answer.answerText.trim(),
+                        isCorrect: answer.isCorrect || false
+                    }))
+                }))
+            };
+
+            // Remove any undefined or null values and ensure proper data structure
+            const cleanQuizData = {
+                ...JSON.parse(JSON.stringify(quizData)),
+                questions: quizData.questions.map(q => ({
+                    ...q,
+                    answers: q.answers.map(a => ({
+                        ...a,
+                        isCorrect: Boolean(a.isCorrect)
+                    }))
+                }))
+            };
+
+            console.log('Sending quiz data:', cleanQuizData);
+            console.log('Questions being sent:', cleanQuizData.questions);
+
+            let createdQuiz;
+            if (id) {
+                createdQuiz = await quizService.updateQuiz(parseInt(id), cleanQuizData);
             } else {
-                savedQuiz = await quizService.createQuiz({ ...quiz, questions: [] });
+                createdQuiz = await quizService.createQuiz(cleanQuizData);
             }
-            for (const question of questionsToSave) {
-                await quizService.addQuestion(savedQuiz.id, question);
+
+            // After creating/updating the quiz, ensure questions are saved
+            if (createdQuiz && createdQuiz.id) {
+                // Add questions one by one to ensure they are saved
+                for (const question of cleanQuizData.questions) {
+                    await quizService.addQuestion(createdQuiz.id, {
+                        ...question,
+                        quizId: createdQuiz.id
+                    });
+                }
             }
-            setSuccess(quizId ? 'Quiz updated successfully!' : 'Quiz created successfully!');
-            onSave();
-            if (!quizId) {
-                navigate(`/edit-quiz/${savedQuiz.id}`);
-            }
+
+            console.log('Created/Updated quiz response:', createdQuiz);
+            navigate('/quizzes');
         } catch (error) {
-            setError('Error saving quiz. Please try again.');
             console.error('Error saving quiz:', error);
+            setError('Error saving quiz. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading) {
-        return <div className="text-center">Loading...</div>;
-    }
+    const handleAddQuestion = () => {
+        console.log('Adding new question to quiz:', quiz);
+        
+        const newQuestion: Question = {
+            questionText: '',
+            type: QuestionType.MULTIPLE_CHOICE,
+            points: 1,
+            answers: [],
+            quizId: id ? parseInt(id) : undefined,
+            order: quiz.questions ? quiz.questions.length + 1 : 1
+        };
 
-    return (
-        <div className="max-w-4xl mx-auto">
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-                <div className="p-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                        {quizId ? 'Edit Quiz' : 'Create New Quiz'}
-                    </h2>
+        setQuiz(prev => {
+            const questions = [...(prev.questions || [])];
+            if (newQuestion.type === QuestionType.TRUE_FALSE) {
+                newQuestion.answers = [
+                    { answerText: 'True', isCorrect: true },
+                    { answerText: 'False', isCorrect: false }
+                ];
+            } else if (newQuestion.type === QuestionType.MULTIPLE_CHOICE) {
+                newQuestion.answers = [
+                    { answerText: '', isCorrect: true },
+                    { answerText: '', isCorrect: false }
+                ];
+            } else if (newQuestion.type === QuestionType.SHORT_ANSWER) {
+                newQuestion.answers = [
+                    { answerText: '', isCorrect: true }
+                ];
+            } else if (newQuestion.type === QuestionType.FILE_UPLOAD) {
+                newQuestion.answers = [
+                    { answerText: 'Upload your file here', isCorrect: true }
+                ];
+            }
+            
+            const updatedQuiz = {
+                ...prev,
+                questions: [...questions, newQuestion]
+            };
+            
+            console.log('Updated quiz after adding question:', updatedQuiz);
+            return updatedQuiz;
+        });
+    };
 
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded mb-6">
-                            {error}
-                        </div>
-                    )}
+    const handleQuestionChange = (index: number, field: keyof Question, value: any) => {
+        setQuiz(prev => {
+            const questions = [...(prev.questions || [])];
+            questions[index] = {
+                ...questions[index],
+                [field]: value
+            };
 
-                    {success && (
-                        <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded mb-6">
-                            {success}
-                        </div>
-                    )}
+            // If changing question type, update answers accordingly
+            if (field === 'type') {
+                if (value === QuestionType.TRUE_FALSE) {
+                    questions[index].answers = [
+                        { answerText: 'True', isCorrect: true },
+                        { answerText: 'False', isCorrect: false }
+                    ];
+                } else if (value === QuestionType.MULTIPLE_CHOICE) {
+                    questions[index].answers = [
+                        { answerText: '', isCorrect: true },
+                        { answerText: '', isCorrect: false }
+                    ];
+                } else if (value === QuestionType.SHORT_ANSWER) {
+                    questions[index].answers = [
+                        { answerText: '', isCorrect: true }
+                    ];
+                } else if (value === QuestionType.FILE_UPLOAD) {
+                    questions[index].answers = [
+                        { answerText: 'Upload your file here', isCorrect: true }
+                    ];
+                }
+            }
 
-                    <div className="space-y-6">
+            return { ...prev, questions };
+        });
+    };
+
+    const handleAddAnswer = (questionIndex: number) => {
+        const newAnswer: Answer = {
+            answerText: '',
+            isCorrect: false
+        };
+
+        setQuiz(prev => {
+            const questions = [...(prev.questions || [])];
+            questions[questionIndex] = {
+                ...questions[questionIndex],
+                answers: [...(questions[questionIndex].answers || []), newAnswer]
+            };
+            return { ...prev, questions };
+        });
+    };
+
+    const handleAnswerChange = (questionIndex: number, answerIndex: number, field: keyof Answer, value: any) => {
+        setQuiz(prev => {
+            const questions = [...(prev.questions || [])];
+            const answers = [...(questions[questionIndex].answers || [])];
+            answers[answerIndex] = {
+                ...answers[answerIndex],
+                [field]: value
+            };
+            questions[questionIndex] = {
+                ...questions[questionIndex],
+                answers
+            };
+            return { ...prev, questions };
+        });
+    };
+
+    const handleRemoveQuestion = (index: number) => {
+        setQuiz(prev => ({
+            ...prev,
+            questions: prev.questions?.filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleRemoveAnswer = (questionIndex: number, answerIndex: number) => {
+        setQuiz(prev => {
+            const questions = [...(prev.questions || [])];
+            questions[questionIndex] = {
+                ...questions[questionIndex],
+                answers: questions[questionIndex].answers?.filter((_, i) => i !== answerIndex)
+            };
+            return { ...prev, questions };
+        });
+    };
+
+    const renderQuestionInputs = (question: Question, index: number) => {
+        return (
+            <div key={index} className="border-b border-gray-200 pb-6 mb-6">
+                <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">Question {index + 1}</h3>
+                    <button
+                        type="button"
+                        onClick={() => handleRemoveQuestion(index)}
+                        className="text-red-600 hover:text-red-800"
+                    >
+                        Remove
+                    </button>
+                </div>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Question Text</label>
+                        <input
+                            type="text"
+                            value={question.questionText}
+                            onChange={(e) => handleQuestionChange(index, 'questionText', e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            required
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Question Type</label>
+                        <select
+                            value={question.type}
+                            onChange={(e) => handleQuestionChange(index, 'type', e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        >
+                            <option value={QuestionType.MULTIPLE_CHOICE}>Multiple Choice</option>
+                            <option value={QuestionType.TRUE_FALSE}>True/False</option>
+                            <option value={QuestionType.SHORT_ANSWER}>Short Answer</option>
+                            <option value={QuestionType.FILE_UPLOAD}>File Upload</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Points</label>
+                        <input
+                            type="number"
+                            value={question.points}
+                            onChange={(e) => handleQuestionChange(index, 'points', parseInt(e.target.value))}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            min="1"
+                            required
+                        />
+                    </div>
+
+                    {(question.type === QuestionType.MULTIPLE_CHOICE || question.type === QuestionType.TRUE_FALSE) && (
                         <div>
-                            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                                Title
-                            </label>
-                            <input
-                                type="text"
-                                name="title"
-                                id="title"
-                                value={quiz.title}
-                                onChange={handleQuizChange}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                                Description
-                            </label>
-                            <textarea
-                                name="description"
-                                id="description"
-                                value={quiz.description}
-                                onChange={handleQuizChange}
-                                rows={3}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="timeLimit" className="block text-sm font-medium text-gray-700">
-                                Time Limit (minutes)
-                            </label>
-                            <input
-                                type="number"
-                                name="timeLimit"
-                                id="timeLimit"
-                                value={quiz.timeLimit || ''}
-                                onChange={handleQuizChange}
-                                min="1"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            />
-                        </div>
-
-                        <div className="border-t border-gray-200 pt-6">
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Questions</h3>
-
-                            {questions.map((question, index) => (
-                                <div key={index} className="bg-white shadow rounded-lg p-6 mb-4">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h3 className="text-lg font-medium text-gray-900">
-                                            Question {index + 1} ({question.points} points)
-                                        </h3>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-medium text-gray-700">Answers</label>
+                                <button
+                                    type="button"
+                                    onClick={() => handleAddAnswer(index)}
+                                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                                >
+                                    Add Answer
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {question.answers?.map((answer, answerIndex) => (
+                                    <div key={answerIndex} className="flex items-center space-x-2">
+                                        <input
+                                            type="text"
+                                            value={answer.answerText}
+                                            onChange={(e) => handleAnswerChange(index, answerIndex, 'answerText', e.target.value)}
+                                            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            placeholder="Answer text"
+                                            required
+                                        />
+                                        <label className="flex items-center space-x-2">
+                                            <input
+                                                type="radio"
+                                                checked={answer.isCorrect}
+                                                onChange={() => {
+                                                    // Set all answers to false first
+                                                    question.answers?.forEach((a, i) => {
+                                                        handleAnswerChange(index, i, 'isCorrect', false);
+                                                    });
+                                                    // Set the selected answer to true
+                                                    handleAnswerChange(index, answerIndex, 'isCorrect', true);
+                                                }}
+                                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                                            />
+                                            <span className="text-sm text-gray-500">Correct</span>
+                                        </label>
                                         <button
-                                            onClick={() => handleRemoveQuestion(index)}
+                                            type="button"
+                                            onClick={() => handleRemoveAnswer(index, answerIndex)}
                                             className="text-red-600 hover:text-red-800"
                                         >
                                             Remove
                                         </button>
                                     </div>
-                                    <p className="text-gray-700 mb-2">{question.questionText}</p>
-                                    <div className="space-y-2">
-                                        {question.answers.map((answer, optIndex) => (
-                                            <div
-                                                key={optIndex}
-                                                className={`p-2 rounded ${
-                                                    answer.isCorrect
-                                                        ? 'bg-green-50 border border-green-200'
-                                                        : 'bg-gray-50'
-                                                }`}
-                                            >
-                                                {answer.answerText}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-
-                            <div className="bg-white shadow rounded-lg p-6">
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Question</h3>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label htmlFor="questionText" className="block text-sm font-medium text-gray-700">
-                                            Question Text
-                                        </label>
-                                        <textarea
-                                            name="questionText"
-                                            id="questionText"
-                                            value={newQuestion.questionText}
-                                            onChange={handleQuestionChange}
-                                            rows={2}
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Options
-                                        </label>
-                                        {newQuestion.answers.map((answer, index) => (
-                                            <div key={index} className="flex items-center space-x-2 mb-2">
-                                                <input
-                                                    type="radio"
-                                                    name="correctAnswer"
-                                                    checked={answer.isCorrect}
-                                                    onChange={() => handleCorrectAnswerChange(index)}
-                                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={answer.answerText}
-                                                    onChange={(e) => handleOptionChange(index, e.target.value)}
-                                                    placeholder={`Option ${index + 1}`}
-                                                    className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div>
-                                        <label htmlFor="points" className="block text-sm font-medium text-gray-700">
-                                            Points
-                                        </label>
-                                        <input
-                                            type="number"
-                                            name="points"
-                                            id="points"
-                                            value={newQuestion.points}
-                                            onChange={(e) => setNewQuestion(prev => ({ ...prev, points: parseInt(e.target.value) }))}
-                                            min="1"
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={handleAddQuestion}
-                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    >
-                                        Add Question
-                                    </button>
-                                </div>
+                                ))}
                             </div>
                         </div>
+                    )}
 
-                        <div className="flex justify-end space-x-4">
-                            <button
-                                type="button"
-                                onClick={() => navigate('/')}
-                                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleSave}
-                                disabled={loading}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                            >
-                                {loading ? 'Saving...' : 'Save Quiz'}
-                            </button>
+                    {question.type === QuestionType.SHORT_ANSWER && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Correct Answer</label>
+                            <input
+                                type="text"
+                                value={question.answers?.[0]?.answerText || ''}
+                                onChange={(e) => {
+                                    if (!question.answers?.length) {
+                                        handleAddAnswer(index);
+                                    }
+                                    handleAnswerChange(index, 0, 'answerText', e.target.value);
+                                    handleAnswerChange(index, 0, 'isCorrect', true);
+                                }}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                placeholder="Enter the correct answer"
+                                required
+                            />
                         </div>
-                    </div>
+                    )}
+
+                    {question.type === QuestionType.FILE_UPLOAD && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">File Upload Instructions</label>
+                            <textarea
+                                value={question.answers?.[0]?.answerText || ''}
+                                onChange={(e) => {
+                                    if (!question.answers?.length) {
+                                        handleAddAnswer(index);
+                                    }
+                                    handleAnswerChange(index, 0, 'answerText', e.target.value);
+                                    handleAnswerChange(index, 0, 'isCorrect', true);
+                                }}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                placeholder="Enter instructions for file upload"
+                                rows={3}
+                                required
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
+        );
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Loading quiz...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-3xl mx-auto px-4 py-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+                        {error}
+                    </div>
+                )}
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Title</label>
+                    <input
+                        type="text"
+                        value={quiz.title}
+                        onChange={(e) => setQuiz({ ...quiz, title: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        required
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea
+                        value={quiz.description}
+                        onChange={(e) => setQuiz({ ...quiz, description: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        rows={3}
+                        required
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Time Limit (minutes)</label>
+                    <input
+                        type="number"
+                        value={quiz.timeLimit}
+                        onChange={(e) => setQuiz({ ...quiz, timeLimit: parseInt(e.target.value) })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        min="1"
+                        required
+                    />
+                </div>
+
+                <div>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-lg font-medium text-gray-900">Questions</h2>
+                        <button
+                            type="button"
+                            onClick={handleAddQuestion}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            Add Question
+                        </button>
+                    </div>
+
+                    <div className="space-y-6">
+                        {quiz.questions?.map((question, index) => renderQuestionInputs(question, index))}
+                    </div>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                    <button
+                        type="button"
+                        onClick={() => navigate('/quizzes')}
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                    >
+                        {loading ? 'Saving...' : 'Save Quiz'}
+                    </button>
+                </div>
+            </form>
         </div>
     );
 }; 

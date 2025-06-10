@@ -1,49 +1,53 @@
+export enum QuestionType {
+    MULTIPLE_CHOICE = 'MULTIPLE_CHOICE',
+    TRUE_FALSE = 'TRUE_FALSE',
+    SHORT_ANSWER = 'SHORT_ANSWER',
+    FILE_UPLOAD = 'FILE_UPLOAD'
+}
+
 export interface Answer {
     id?: number;
-    questionId?: number;
     answerText: string;
-    isCorrect?: boolean;
-    order?: number;
+    isCorrect: boolean;
 }
 
 export interface Question {
     id?: number;
     quizId?: number;
     questionText: string;
-    type: 'MULTIPLE_CHOICE' | 'TRUE_FALSE';
+    type: QuestionType;
     points: number;
-    order?: number;
     answers: Answer[];
+    order?: number;
 }
 
 export interface Quiz {
-    id: number;
+    id?: number;
     title: string;
     description: string;
-    instructorId: number;
-    isPublished: boolean;
+    instructorId?: number;
     timeLimit?: number;
-    questions: Question[];
+    isPublished?: boolean;
+    questions?: Question[];
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
 export interface QuizSubmission {
     id?: number;
     quizId: number;
     studentId: number;
-    score?: number;
-    answers: Record<number, number>;
+    score: number;
     startedAt: Date;
     completedAt?: Date;
     submittedAt?: Date;
+    answers: Record<number, number | string>;
 }
 
 export interface User {
-    id?: number;
+    id: number;
     email: string;
-    password?: string;
     firstName: string;
     lastName: string;
     role: 'STUDENT' | 'INSTRUCTOR';
-    createdAt?: Date;
-    updatedAt?: Date;
 } 

@@ -8,7 +8,7 @@ public class QuizSubmission {
     private Long id;
     private Long quizId;
     private Long studentId;
-    private Map<Long, Long> answers; // questionId -> selectedAnswerId
+    private Map<Long, Object> answers; // questionId -> selectedAnswerId or text answer
     private Integer score;
     private LocalDateTime submittedAt;
     private LocalDateTime startedAt;
@@ -39,11 +39,11 @@ public class QuizSubmission {
         this.studentId = studentId;
     }
 
-    public Map<Long, Long> getAnswers() {
+    public Map<Long, Object> getAnswers() {
         return answers;
     }
 
-    public void setAnswers(Map<Long, Long> answers) {
+    public void setAnswers(Map<Long, Object> answers) {
         this.answers = answers;
     }
 

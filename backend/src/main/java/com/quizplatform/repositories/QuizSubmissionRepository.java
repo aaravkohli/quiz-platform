@@ -32,12 +32,21 @@ public class QuizSubmissionRepository implements BaseRepository<QuizSubmission> 
 
             // Save answers
             if (submission.getAnswers() != null && !submission.getAnswers().isEmpty()) {
-                String answerSql = "INSERT INTO submission_answers (submission_id, question_id, selected_answer_id) VALUES (?, ?, ?)";
+                String answerSql = "INSERT INTO submission_answers (submission_id, question_id, selected_answer_id, answer_text) VALUES (?, ?, ?, ?)";
                 try (PreparedStatement answerStmt = conn.prepareStatement(answerSql)) {
-                    for (Map.Entry<Long, Long> entry : submission.getAnswers().entrySet()) {
+                    for (Map.Entry<Long, Object> entry : submission.getAnswers().entrySet()) {
                         answerStmt.setLong(1, submission.getId());
                         answerStmt.setLong(2, entry.getKey());
-                        answerStmt.setLong(3, entry.getValue());
+                        
+                        // Handle both string and number answers
+                        if (entry.getValue() instanceof String) {
+                            answerStmt.setNull(3, Types.BIGINT);
+                            answerStmt.setString(4, (String) entry.getValue());
+                        } else {
+                            answerStmt.setLong(3, ((Number) entry.getValue()).longValue());
+                            answerStmt.setNull(4, Types.VARCHAR);
+                        }
+                        
                         answerStmt.executeUpdate();
                     }
                 }
@@ -146,12 +155,21 @@ public class QuizSubmissionRepository implements BaseRepository<QuizSubmission> 
                 }
 
                 // Insert new answers
-                String answerSql = "INSERT INTO submission_answers (submission_id, question_id, selected_answer_id) VALUES (?, ?, ?)";
+                String answerSql = "INSERT INTO submission_answers (submission_id, question_id, selected_answer_id, answer_text) VALUES (?, ?, ?, ?)";
                 try (PreparedStatement answerStmt = conn.prepareStatement(answerSql)) {
-                    for (Map.Entry<Long, Long> entry : submission.getAnswers().entrySet()) {
+                    for (Map.Entry<Long, Object> entry : submission.getAnswers().entrySet()) {
                         answerStmt.setLong(1, submission.getId());
                         answerStmt.setLong(2, entry.getKey());
-                        answerStmt.setLong(3, entry.getValue());
+                        
+                        // Handle both string and number answers
+                        if (entry.getValue() instanceof String) {
+                            answerStmt.setNull(3, Types.BIGINT);
+                            answerStmt.setString(4, (String) entry.getValue());
+                        } else {
+                            answerStmt.setLong(3, ((Number) entry.getValue()).longValue());
+                            answerStmt.setNull(4, Types.VARCHAR);
+                        }
+                        
                         answerStmt.executeUpdate();
                     }
                 }
@@ -192,15 +210,20 @@ public class QuizSubmissionRepository implements BaseRepository<QuizSubmission> 
         return submission;
     }
 
-    private Map<Long, Long> getSubmissionAnswers(Long submissionId) {
-        String sql = "SELECT question_id, selected_answer_id FROM submission_answers WHERE submission_id = ?";
-        Map<Long, Long> answers = new HashMap<>();
+    private Map<Long, Object> getSubmissionAnswers(Long submissionId) {
+        String sql = "SELECT question_id, selected_answer_id, answer_text FROM submission_answers WHERE submission_id = ?";
+        Map<Long, Object> answers = new HashMap<>();
         try (Connection conn = Main.getDataSource().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setLong(1, submissionId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    answers.put(rs.getLong("question_id"), rs.getLong("selected_answer_id"));
+                    Long questionId = rs.getLong("question_id");
+                    Long selectedAnswerId = rs.getLong("selected_answer_id");
+                    String textAnswer = rs.getString("answer_text");
+                    
+                    // If there's a text answer, use that, otherwise use the selected answer ID
+                    answers.put(questionId, textAnswer != null ? textAnswer : selectedAnswerId);
                 }
             }
             return answers;

@@ -18,7 +18,7 @@ public class AnswerRepository implements BaseRepository<Answer> {
             stmt.setLong(1, answer.getQuestionId());
             stmt.setString(2, answer.getAnswerText());
             stmt.setBoolean(3, answer.getIsCorrect());
-            stmt.setInt(4, answer.getOrder());
+            stmt.setInt(4, answer.getAnswerOrder());
             
             stmt.executeUpdate();
             
@@ -90,7 +90,7 @@ public class AnswerRepository implements BaseRepository<Answer> {
              PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, answer.getAnswerText());
             stmt.setBoolean(2, answer.getIsCorrect());
-            stmt.setInt(3, answer.getOrder());
+            stmt.setInt(3, answer.getAnswerOrder());
             stmt.setLong(4, answer.getId());
             
             stmt.executeUpdate();
@@ -118,7 +118,7 @@ public class AnswerRepository implements BaseRepository<Answer> {
         answer.setQuestionId(rs.getLong("question_id"));
         answer.setAnswerText(rs.getString("answer_text"));
         answer.setIsCorrect(rs.getBoolean("is_correct"));
-        answer.setOrder(rs.getInt("answer_order"));
+        answer.setAnswerOrder(rs.getInt("answer_order"));
         return answer;
     }
 } 
