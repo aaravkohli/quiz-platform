@@ -49,8 +49,9 @@ export const QuizForm: React.FC = () => {
             setLoading(true);
             setError(null);
 
-            console.log('Current quiz state:', quiz);
-            console.log('Questions in quiz:', quiz.questions);
+            // Log initial state
+            console.log('Initial quiz state:', JSON.stringify(quiz, null, 2));
+            console.log('Initial questions:', JSON.stringify(quiz.questions, null, 2));
 
             // Validate that quiz has at least one question
             if (!quiz.questions || quiz.questions.length === 0) {
@@ -59,34 +60,31 @@ export const QuizForm: React.FC = () => {
                 return;
             }
 
-            // Ensure all questions have answers
-            const hasValidQuestions = quiz.questions.every(question => {
-                if (!question.answers || question.answers.length === 0) return false;
-                if (question.type === QuestionType.MULTIPLE_CHOICE || question.type === QuestionType.TRUE_FALSE) {
-                    return question.answers.some(answer => answer.isCorrect);
-                }
-                return true;
-            });
-
-            if (!hasValidQuestions) {
-                setError('All questions must have valid answers.');
-                setLoading(false);
-                return;
-            }
-
             // Create a new quiz object with all required data
             const quizData = {
                 ...quiz,
-                questions: quiz.questions.map((question, index) => ({
+                questions: quiz.questions.map((question, index) => {
+                    // Log each question's answers before processing
+                    console.log(`Question ${index + 1} before processing:`, JSON.stringify(question, null, 2));
+                    
+                    const processedQuestion = {
                     ...question,
                     quizId: id ? parseInt(id) : undefined,
                     order: index + 1,
-                    answers: question.answers.map(answer => ({
+                        answers: question.answers.map(answer => {
+                            const processedAnswer = {
                         ...answer,
                         answerText: answer.answerText.trim(),
-                        isCorrect: answer.isCorrect || false
-                    }))
-                }))
+                                isCorrect: Boolean(answer.isCorrect)
+                            };
+                            console.log(`Processed answer:`, JSON.stringify(processedAnswer, null, 2));
+                            return processedAnswer;
+                        })
+                    };
+                    
+                    console.log(`Question ${index + 1} after processing:`, JSON.stringify(processedQuestion, null, 2));
+                    return processedQuestion;
+                })
             };
 
             // Remove any undefined or null values and ensure proper data structure
@@ -101,8 +99,7 @@ export const QuizForm: React.FC = () => {
                 }))
             };
 
-            console.log('Sending quiz data:', cleanQuizData);
-            console.log('Questions being sent:', cleanQuizData.questions);
+            console.log('Final quiz data being sent:', JSON.stringify(cleanQuizData, null, 2));
 
             let createdQuiz;
             if (id) {
@@ -111,18 +108,7 @@ export const QuizForm: React.FC = () => {
                 createdQuiz = await quizService.createQuiz(cleanQuizData);
             }
 
-            // After creating/updating the quiz, ensure questions are saved
-            if (createdQuiz && createdQuiz.id) {
-                // Add questions one by one to ensure they are saved
-                for (const question of cleanQuizData.questions) {
-                    await quizService.addQuestion(createdQuiz.id, {
-                        ...question,
-                        quizId: createdQuiz.id
-                    });
-                }
-            }
-
-            console.log('Created/Updated quiz response:', createdQuiz);
+            console.log('Created/Updated quiz response:', JSON.stringify(createdQuiz, null, 2));
             navigate('/quizzes');
         } catch (error) {
             console.error('Error saving quiz:', error);
@@ -181,7 +167,7 @@ export const QuizForm: React.FC = () => {
             const questions = [...(prev.questions || [])];
             questions[index] = {
                 ...questions[index],
-                [field]: value
+                [field]: field === 'points' ? (value === '' ? 1 : parseInt(value) || 1) : value
             };
 
             // If changing question type, update answers accordingly
@@ -231,14 +217,37 @@ export const QuizForm: React.FC = () => {
         setQuiz(prev => {
             const questions = [...(prev.questions || [])];
             const answers = [...(questions[questionIndex].answers || [])];
+            
+            console.log('Before change - Question:', questions[questionIndex]);
+            console.log('Before change - Answers:', answers);
+            
+            // If this is a multiple choice or true/false question and we're setting isCorrect
+            if ((questions[questionIndex].type === QuestionType.MULTIPLE_CHOICE || 
+                 questions[questionIndex].type === QuestionType.TRUE_FALSE) && 
+                field === 'isCorrect') {
+                // For radio buttons, we need to set all other answers to false
+                answers.forEach((_, i) => {
+                    answers[i] = { 
+                        ...answers[i], 
+                        isCorrect: i === answerIndex ? true : false 
+                    };
+                });
+            } else {
+                // For other fields (like answerText), just update the specific answer
             answers[answerIndex] = {
                 ...answers[answerIndex],
-                [field]: value
+                    [field]: field === 'answerText' ? value.trim() : value
             };
+            }
+            
             questions[questionIndex] = {
                 ...questions[questionIndex],
                 answers
             };
+
+            console.log('After change - Question:', questions[questionIndex]);
+            console.log('After change - Answers:', answers);
+            
             return { ...prev, questions };
         });
     };
@@ -282,7 +291,7 @@ export const QuizForm: React.FC = () => {
                             type="text"
                             value={question.questionText}
                             onChange={(e) => handleQuestionChange(index, 'questionText', e.target.value)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2 bg-white hover:border-gray-400 transition-colors duration-200"
                             required
                         />
                     </div>
@@ -292,7 +301,7 @@ export const QuizForm: React.FC = () => {
                         <select
                             value={question.type}
                             onChange={(e) => handleQuestionChange(index, 'type', e.target.value)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2 bg-white hover:border-gray-400 transition-colors duration-200"
                         >
                             <option value={QuestionType.MULTIPLE_CHOICE}>Multiple Choice</option>
                             <option value={QuestionType.TRUE_FALSE}>True/False</option>
@@ -307,7 +316,7 @@ export const QuizForm: React.FC = () => {
                             type="number"
                             value={question.points}
                             onChange={(e) => handleQuestionChange(index, 'points', parseInt(e.target.value))}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2 bg-white hover:border-gray-400 transition-colors duration-200"
                             min="1"
                             required
                         />
@@ -320,44 +329,39 @@ export const QuizForm: React.FC = () => {
                                 <button
                                     type="button"
                                     onClick={() => handleAddAnswer(index)}
-                                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                                    className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                                 >
                                     Add Answer
                                 </button>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {question.answers?.map((answer, answerIndex) => (
-                                    <div key={answerIndex} className="flex items-center space-x-2">
+                                    <div key={answerIndex} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors duration-200">
                                         <input
                                             type="text"
                                             value={answer.answerText}
                                             onChange={(e) => handleAnswerChange(index, answerIndex, 'answerText', e.target.value)}
-                                            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2 bg-white hover:border-gray-400 transition-colors duration-200"
                                             placeholder="Answer text"
                                             required
                                         />
-                                        <label className="flex items-center space-x-2">
+                                        <label className="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-md">
                                             <input
                                                 type="radio"
                                                 checked={answer.isCorrect}
-                                                onChange={() => {
-                                                    // Set all answers to false first
-                                                    question.answers?.forEach((a, i) => {
-                                                        handleAnswerChange(index, i, 'isCorrect', false);
-                                                    });
-                                                    // Set the selected answer to true
-                                                    handleAnswerChange(index, answerIndex, 'isCorrect', true);
-                                                }}
+                                                onChange={(e) => handleAnswerChange(index, answerIndex, 'isCorrect', e.target.checked)}
                                                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                                             />
-                                            <span className="text-sm text-gray-500">Correct</span>
+                                            <span className="text-sm text-gray-600 font-medium">Correct</span>
                                         </label>
                                         <button
                                             type="button"
                                             onClick={() => handleRemoveAnswer(index, answerIndex)}
-                                            className="text-red-600 hover:text-red-800"
+                                            className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50 transition-colors duration-200"
                                         >
-                                            Remove
+                                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
                                         </button>
                                     </div>
                                 ))}
@@ -378,7 +382,7 @@ export const QuizForm: React.FC = () => {
                                     handleAnswerChange(index, 0, 'answerText', e.target.value);
                                     handleAnswerChange(index, 0, 'isCorrect', true);
                                 }}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2 bg-white hover:border-gray-400 transition-colors duration-200"
                                 placeholder="Enter the correct answer"
                                 required
                             />
@@ -397,7 +401,7 @@ export const QuizForm: React.FC = () => {
                                     handleAnswerChange(index, 0, 'answerText', e.target.value);
                                     handleAnswerChange(index, 0, 'isCorrect', true);
                                 }}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-4 py-2 bg-white hover:border-gray-400 transition-colors duration-200"
                                 placeholder="Enter instructions for file upload"
                                 rows={3}
                                 required

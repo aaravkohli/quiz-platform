@@ -114,9 +114,8 @@ public class QuestionRepository implements BaseRepository<Question> {
                         answer.setId(rs.getLong("answer_id"));
                         answer.setQuestionId(questionId);
                         answer.setAnswerText(rs.getString("answer_text"));
-                        if (includeCorrectAnswers) {
+                        // Always include isCorrect for validation and scoring purposes
                             answer.setIsCorrect(rs.getBoolean("is_correct"));
-                        }
                         answer.setAnswerOrder(rs.getInt("answer_order"));
                         currentQuestion.getAnswers().add(answer);
                     }

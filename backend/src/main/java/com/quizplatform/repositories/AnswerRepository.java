@@ -17,7 +17,7 @@ public class AnswerRepository implements BaseRepository<Answer> {
              PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setLong(1, answer.getQuestionId());
             stmt.setString(2, answer.getAnswerText());
-            stmt.setBoolean(3, answer.getIsCorrect());
+            stmt.setBoolean(3, Boolean.TRUE.equals(answer.getIsCorrect()));
             stmt.setInt(4, answer.getAnswerOrder());
             
             stmt.executeUpdate();

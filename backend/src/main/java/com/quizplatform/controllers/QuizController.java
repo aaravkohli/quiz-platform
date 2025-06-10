@@ -233,6 +233,8 @@ public class QuizController extends BaseController {
             }
 
             Quiz quiz = quizOpt.get();
+            System.out.println("Publishing quiz: " + quiz.getId());
+            System.out.println("Questions count: " + (quiz.getQuestions() != null ? quiz.getQuestions().size() : 0));
 
             // Validate that quiz has questions
             if (quiz.getQuestions() == null || quiz.getQuestions().isEmpty()) {
@@ -242,14 +244,26 @@ public class QuizController extends BaseController {
 
             // Validate each question has answers
             for (Question question : quiz.getQuestions()) {
+                System.out.println("Validating question: " + question.getId());
+                System.out.println("Question type: " + question.getType());
+                System.out.println("Answers count: " + (question.getAnswers() != null ? question.getAnswers().size() : 0));
+                
                 if (question.getAnswers() == null || question.getAnswers().isEmpty()) {
                     errorResponse(ctx, 400, "Cannot publish quiz: Each question must have at least one answer");
                     return;
                 }
-                if ((question.getType() == Question.QuestionType.MULTIPLE_CHOICE || question.getType() == Question.QuestionType.TRUE_FALSE) 
-                    && !question.getAnswers().stream().anyMatch(Answer::getIsCorrect)) {
-                    errorResponse(ctx, 400, "Cannot publish quiz: Multiple choice and true/false questions must have one correct answer");
+
+                if (question.getType() == Question.QuestionType.MULTIPLE_CHOICE || 
+                    question.getType() == Question.QuestionType.TRUE_FALSE) {
+                    long correctAnswersCount = question.getAnswers().stream()
+                        .filter(Answer::getIsCorrect)
+                        .count();
+                    System.out.println("Correct answers count: " + correctAnswersCount);
+                    
+                    if (correctAnswersCount != 1) {
+                        errorResponse(ctx, 400, "Cannot publish quiz: Multiple choice and true/false questions must have exactly one correct answer");
                     return;
+                    }
                 }
             }
 
@@ -349,28 +363,7 @@ public class QuizController extends BaseController {
             submission.setAnswers(answers);
 
             // Calculate score
-            int totalScore = 0;
-            for (Question question : quiz.get().getQuestions()) {
-                Object selectedAnswer = answers.get(question.getId());
-                if (selectedAnswer != null) {
-                    if (question.getType() == Question.QuestionType.SHORT_ANSWER) {
-                        // For short answer questions, we'll need to implement text comparison
-                        // For now, we'll just give points if an answer was provided
-                        totalScore += question.getPoints();
-                    } else {
-                        // For multiple choice and true/false questions
-                        Long selectedAnswerId = selectedAnswer instanceof Long ? (Long) selectedAnswer : 
-                                              selectedAnswer instanceof String ? Long.parseLong((String) selectedAnswer) : null;
-                        if (selectedAnswerId != null) {
-                            boolean isCorrect = question.getAnswers().stream()
-                                .anyMatch(a -> a.getId().equals(selectedAnswerId) && a.getIsCorrect());
-                            if (isCorrect) {
-                                totalScore += question.getPoints();
-                            }
-                        }
-                    }
-                }
-            }
+            int totalScore = calculateScore(quiz.get(), answers);
             submission.setScore(totalScore);
             submission.setCompletedAt(LocalDateTime.now());
             submission.setSubmittedAt(LocalDateTime.now());
@@ -382,6 +375,75 @@ public class QuizController extends BaseController {
             e.printStackTrace();
             ctx.status(500).json(Map.of("error", "Error submitting quiz: " + e.getMessage()));
         }
+    }
+
+    private int calculateScore(Quiz quiz, Map<Long, Object> submittedAnswers) {
+        System.out.println("=== Starting score calculation ===");
+        System.out.println("Quiz ID: " + quiz.getId());
+        System.out.println("Submitted answers: " + submittedAnswers);
+        
+        int totalScore = 0;
+        for (Question question : quiz.getQuestions()) {
+            System.out.println("\nProcessing question ID: " + question.getId());
+            System.out.println("Question type: " + question.getType());
+            System.out.println("Question points: " + question.getPoints());
+            
+            Object selectedAnswer = submittedAnswers.get(question.getId());
+            System.out.println("Selected answer: " + selectedAnswer);
+            
+            if (selectedAnswer != null) {
+                switch (question.getType()) {
+                    case MULTIPLE_CHOICE:
+                    case TRUE_FALSE:
+                        try {
+                            Long selectedAnswerId = Long.valueOf(selectedAnswer.toString());
+                            System.out.println("Selected answer ID: " + selectedAnswerId);
+                            
+                            for (Answer a : question.getAnswers()) {
+                                System.out.println("Checking answer ID: " + a.getId());
+                                System.out.println("Answer isCorrect: " + a.getIsCorrect());
+                                
+                                if (a.getId() != null && a.getId().longValue() == selectedAnswerId.longValue()) {
+                                    System.out.println("Answer IDs match!");
+                                    if (a.getIsCorrect() != null && a.getIsCorrect()) {
+                                        System.out.println("Answer is correct! Adding " + question.getPoints() + " points");
+                                        totalScore += question.getPoints();
+                                    } else {
+                                        System.out.println("Answer is not correct");
+                                    }
+                                }
+                            }
+                        } catch (NumberFormatException e) {
+                            System.out.println("Invalid answer ID format for multiple choice question");
+                        }
+                        break;
+                        
+                    case SHORT_ANSWER:
+                        String submittedText = selectedAnswer.toString().trim().toLowerCase();
+                        System.out.println("Submitted text: " + submittedText);
+                        
+                        for (Answer a : question.getAnswers()) {
+                            String correctText = a.getAnswerText().trim().toLowerCase();
+                            System.out.println("Correct text: " + correctText);
+                            
+                            if (correctText.equals(submittedText)) {
+                                System.out.println("Text matches! Adding " + question.getPoints() + " points");
+                                totalScore += question.getPoints();
+                                break;
+                            }
+                        }
+                        break;
+                        
+                    default:
+                        System.out.println("Unsupported question type: " + question.getType());
+                }
+            } else {
+                System.out.println("No answer selected for this question");
+            }
+        }
+        
+        System.out.println("\n=== Final score: " + totalScore + " ===");
+        return totalScore;
     }
 
     public void getSubmission(Context ctx) {

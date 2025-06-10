@@ -11,6 +11,8 @@ import { QuizSubmissionSummary } from './components/QuizSubmissionSummary';
 import QuizAttempts from './components/QuizAttempts';
 import { QuizAnalytics } from './components/QuizAnalytics';
 import { QuizReport } from './components/QuizReport';
+import Footer from './components/Footer';
+import './styles/custom.css';
 
 const QuizTakerWrapper = () => {
     const { id } = useParams();
@@ -78,42 +80,33 @@ const App = () => {
     };
 
     if (loading) {
-        return <div>Loading...</div>;
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-neutral-light">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-color"></div>
+            </div>
+        );
     }
 
     return (
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <div className="min-h-screen bg-gray-100">
-                <nav className="bg-white shadow-sm">
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="min-h-screen flex flex-col bg-neutral-light">
+                <nav className="bg-white shadow-sm animate-fade-in">
+                    <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12">
                         <div className="flex justify-between h-16">
-                            <div className="flex">
-                                <div className="flex-shrink-0 flex items-center">
-                                    <h1 className="text-xl font-bold text-indigo-600">Quiz Platform</h1>
-                                </div>
-                                <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <div className="flex items-center">
                                     <Link
                                         to="/"
-                                        className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                                    className="flex-shrink-0 flex items-center hover-scale"
                                     >
-                                        Home
-                                    </Link>
-                                    {user?.role === 'INSTRUCTOR' && (
-                                        <Link
-                                            to="/create-quiz"
-                                            className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                                        >
-                                            Create Quiz
+                                    <h1 className="text-2xl font-bold text-primary-color">Quiz Platform</h1>
                                         </Link>
-                                    )}
-                                </div>
                             </div>
-                            <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-6">
                                 {user ? (
                                     <>
                                         <Link
                                             to="/profile"
-                                            className="text-gray-500 hover:text-gray-700"
+                                            className="text-text-secondary hover:text-text-primary transition-colors duration-200 text-sm font-medium"
                                         >
                                             Profile
                                         </Link>
@@ -122,7 +115,7 @@ const App = () => {
                                                 authService.logout();
                                                 setUser(null);
                                             }}
-                                            className="text-gray-500 hover:text-gray-700"
+                                            className="text-text-secondary hover:text-text-primary transition-colors duration-200 text-sm font-medium"
                                         >
                                             Logout
                                         </button>
@@ -130,7 +123,7 @@ const App = () => {
                                 ) : (
                                     <Link
                                         to="/login"
-                                        className="text-gray-500 hover:text-gray-700"
+                                        className="text-text-secondary hover:text-text-primary transition-colors duration-200 text-sm font-medium"
                                     >
                                         Login
                                     </Link>
@@ -140,7 +133,45 @@ const App = () => {
                     </div>
                 </nav>
 
-                <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                <main className="flex-grow max-w-[1920px] mx-auto w-full px-4 sm:px-6 lg:px-8 xl:px-12 py-8 animate-fade-in">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {user && (
+                            <aside className="hidden lg:block lg:col-span-3">
+                                <div className="sticky top-8 bg-white rounded-lg shadow-sm p-6">
+                                    <nav className="space-y-4">
+                                        <Link
+                                            to="/"
+                                            className="block text-text-secondary hover:text-text-primary transition-colors duration-200"
+                                        >
+                                            Dashboard
+                                        </Link>
+                                        {user.role === 'INSTRUCTOR' && (
+                                            <>
+                                                <Link
+                                                    to="/create-quiz"
+                                                    className="block text-text-secondary hover:text-text-primary transition-colors duration-200"
+                                                >
+                                                    Create Quiz
+                                                </Link>
+                                                <Link
+                                                    to="/my-quizzes"
+                                                    className="block text-text-secondary hover:text-text-primary transition-colors duration-200"
+                                                >
+                                                    My Quizzes
+                                                </Link>
+                                            </>
+                                        )}
+                                        <Link
+                                            to="/profile"
+                                            className="block text-text-secondary hover:text-text-primary transition-colors duration-200"
+                                        >
+                                            Profile Settings
+                                        </Link>
+                                    </nav>
+                                </div>
+                            </aside>
+                        )}
+                        <div className={`${user ? 'lg:col-span-9' : 'lg:col-span-12'}`}>
                     <Routes>
                         <Route
                             path="/"
@@ -148,10 +179,10 @@ const App = () => {
                                 user ? (
                                     <QuizList user={user} />
                                 ) : (
-                                    <div className="text-center">
-                                        <h2 className="text-2xl font-bold mb-4">Welcome to Quiz Platform</h2>
-                                        <p className="text-gray-600">
-                                            Please <Link to="/login" className="text-indigo-600 hover:text-indigo-500">login</Link> to access quizzes.
+                                            <div className="text-center animate-slide-up max-w-3xl mx-auto">
+                                                <h2 className="text-3xl font-bold mb-6 text-text-primary">Welcome to Quiz Platform</h2>
+                                                <p className="text-lg text-text-secondary mb-8">
+                                                    Please <Link to="/login" className="text-primary-color hover:text-secondary-color transition-colors duration-200">login</Link> to access quizzes.
                                         </p>
                                     </div>
                                 )
@@ -237,8 +268,20 @@ const App = () => {
                                 </ProtectedRoute>
                             }
                         />
+                                <Route
+                                    path="/my-quizzes"
+                                    element={
+                                        <ProtectedRoute requireInstructor>
+                                            {user && <QuizList user={user} showOnlyMyQuizzes={true} />}
+                                </ProtectedRoute>
+                            }
+                        />
                     </Routes>
+                        </div>
+                    </div>
                 </main>
+
+                <Footer />
             </div>
         </Router>
     );

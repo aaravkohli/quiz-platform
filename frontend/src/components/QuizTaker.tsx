@@ -166,20 +166,20 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({ quizId, onComplete }) => {
         switch (question.type) {
             case 'MULTIPLE_CHOICE':
                 return (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {question.answers?.map((answer) => (
                             <label
                                 key={answer.id}
-                                className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                                className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer transition-colors duration-200"
                             >
                                 <input
                                     type="radio"
                                     name={`question-${question.id}`}
                                     checked={answers[question.id!] === answer.id}
                                     onChange={() => handleAnswerChange(question.id!, answer.id!)}
-                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                                    className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                 />
-                                <span className="text-gray-700">{answer.answerText}</span>
+                                <span className="text-gray-700 text-lg">{answer.answerText}</span>
                             </label>
                         ))}
                     </div>
@@ -187,20 +187,20 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({ quizId, onComplete }) => {
 
             case 'TRUE_FALSE':
                 return (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {question.answers?.map((answer) => (
                             <label
                                 key={answer.id}
-                                className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
+                                className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50 cursor-pointer transition-colors duration-200"
                             >
                                 <input
                                     type="radio"
                                     name={`question-${question.id}`}
                                     checked={answers[question.id!] === answer.id}
                                     onChange={() => handleAnswerChange(question.id!, answer.id!)}
-                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                                    className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                                 />
-                                <span className="text-gray-700">{answer.answerText}</span>
+                                <span className="text-gray-700 text-lg">{answer.answerText}</span>
                             </label>
                         ))}
                     </div>
@@ -213,7 +213,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({ quizId, onComplete }) => {
                             type="text"
                             value={answers[question.id!] as string || ''}
                             onChange={(e) => handleAnswerChange(question.id!, e.target.value)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-lg px-4 py-3 bg-white hover:border-gray-400 transition-colors duration-200"
                             placeholder="Enter your answer"
                         />
                     </div>
@@ -222,25 +222,35 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({ quizId, onComplete }) => {
             case 'FILE_UPLOAD':
                 return (
                     <div className="mt-2">
-                        <input
-                            type="file"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                    handleFileUpload(question.id!, file);
-                                }
-                            }}
-                            className="mt-1 block w-full text-sm text-gray-500
-                                file:mr-4 file:py-2 file:px-4
-                                file:rounded-md file:border-0
-                                file:text-sm file:font-semibold
-                                file:bg-indigo-50 file:text-indigo-700
-                                hover:file:bg-indigo-100"
-                        />
+                        <div className="flex items-center justify-center w-full">
+                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-50 transition-colors duration-200">
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <svg className="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                    <p className="mb-2 text-sm text-gray-500">
+                                        <span className="font-semibold">Click to upload</span> or drag and drop
+                                    </p>
+                                    <p className="text-xs text-gray-500">PDF, DOC, or image files</p>
+                                </div>
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            handleFileUpload(question.id!, file);
+                                        }
+                                    }}
+                                />
+                            </label>
+                        </div>
                         {answers[question.id!] && (
-                            <p className="mt-2 text-sm text-gray-500">
-                                Selected file: {answers[question.id!]}
-                            </p>
+                            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <p className="text-sm text-green-700 font-medium">
+                                    Selected file: {answers[question.id!]}
+                                </p>
+                            </div>
                         )}
                     </div>
                 );
@@ -252,67 +262,48 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({ quizId, onComplete }) => {
 
     return (
         <div className="max-w-3xl mx-auto px-4 py-8">
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-                <div className="px-4 py-5 sm:p-6">
-                    {/* Quiz Header */}
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">{quiz.title}</h2>
-                        {timeLeft !== null && (
-                            <div className="text-lg font-medium text-gray-900">
-                                Time Left: {formatTime(timeLeft)}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="mb-6">
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div
-                                className="bg-indigo-600 h-2.5 rounded-full"
-                                style={{ width: `${((currentQuestion + 1) / (quiz.questions?.length || 1)) * 100}%` }}
-                            ></div>
+            <div className="bg-white rounded-lg shadow-lg p-6">
+                {timeLeft !== null && (
+                    <div className="mb-6 p-4 bg-indigo-50 rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <span className="text-indigo-700 font-medium">Time Remaining:</span>
+                            <span className="text-2xl font-bold text-indigo-600">{formatTime(timeLeft)}</span>
                         </div>
-                        <p className="mt-2 text-sm text-gray-500">
-                            Question {currentQuestion + 1} of {quiz.questions?.length}
-                        </p>
                     </div>
+                )}
 
-                    {/* Question */}
-                    <div className="mb-8">
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">
-                            {question.questionText}
-                            <span className="ml-2 text-sm text-gray-500">
-                                ({question.points} points)
-                            </span>
-                        </h3>
-                        {renderQuestion()}
+                <div className="mb-8">
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-2xl font-bold text-gray-900">Question {currentQuestion + 1} of {quiz.questions?.length}</h2>
+                        <span className="text-lg font-medium text-gray-600">{question.points} points</span>
                     </div>
+                    <p className="text-xl text-gray-700 mb-6">{question.questionText}</p>
+                    {renderQuestion()}
+                </div>
 
-                    {/* Navigation Buttons */}
-                    <div className="flex justify-between">
+                <div className="flex justify-between items-center pt-6 border-t border-gray-200">
+                    <button
+                        onClick={() => setCurrentQuestion(prev => Math.max(0, prev - 1))}
+                        disabled={currentQuestion === 0}
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Previous
+                    </button>
+                    {currentQuestion === (quiz.questions?.length || 0) - 1 ? (
                         <button
-                            onClick={() => setCurrentQuestion(prev => Math.max(0, prev - 1))}
-                            disabled={currentQuestion === 0}
-                            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                            onClick={handleSubmit}
+                            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                         >
-                            Previous
+                            Submit Quiz
                         </button>
-                        {currentQuestion === (quiz.questions?.length || 0) - 1 ? (
-                            <button
-                                onClick={handleSubmit}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                Submit Quiz
-                            </button>
-                        ) : (
-                            <button
-                                onClick={() => setCurrentQuestion(prev => Math.min((quiz.questions?.length || 0) - 1, prev + 1))}
-                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                Next
-                            </button>
-                        )}
-                    </div>
+                    ) : (
+                        <button
+                            onClick={() => setCurrentQuestion(prev => Math.min((quiz.questions?.length || 0) - 1, prev + 1))}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                        >
+                            Next
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

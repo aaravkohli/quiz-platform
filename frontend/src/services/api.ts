@@ -1,7 +1,12 @@
 import { Quiz, Question, QuizSubmission, User } from '../types/quiz';
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 
 const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:7000/api';
+
+interface AuthResponse {
+    token: string;
+    user: User;
+}
 
 export const api = axios.create({
     baseURL,
@@ -54,64 +59,33 @@ const getAuthHeader = (): Record<string, string> => {
 
 export const authService = {
     login: async (email: string, password: string): Promise<User> => {
-        const response = await fetch(`${baseURL}/users/login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password }),
-        });
-        const data = await handleResponse(response);
-        if (data.token) {
-            localStorage.setItem('token', data.token);
+        const response = await api.post<AuthResponse>('/users/login', { email, password });
+        if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
         }
-        return data.user;
+        return response.data.user;
     },
 
     register: async (email: string, password: string, firstName: string, lastName: string, role: 'STUDENT' | 'INSTRUCTOR'): Promise<User> => {
-        const response = await fetch(`${baseURL}/users/register`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password, firstName, lastName, role }),
-        });
-        const data = await handleResponse(response);
-        if (data.token) {
-            localStorage.setItem('token', data.token);
+        const response = await api.post<AuthResponse>('/users/register', { email, password, firstName, lastName, role });
+        if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
         }
-        return data.user;
+        return response.data.user;
     },
 
     getCurrentUser: async (): Promise<User> => {
-        const response = await fetch(`${baseURL}/users/me`, {
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+        const response = await api.get<User>('/users/me');
+        return response.data;
     },
 
     updateProfile: async (user: User): Promise<User> => {
-        const response = await fetch(`${baseURL}/users/me`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeader(),
-            },
-            body: JSON.stringify(user),
-        });
-        return handleResponse(response);
+        const response = await api.put<User>('/users/me', user);
+        return response.data;
     },
 
     changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
-        const response = await fetch(`${baseURL}/users/me/password`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeader(),
-            },
-            body: JSON.stringify({ currentPassword, newPassword }),
-        });
-        return handleResponse(response);
+        await api.put('/users/me/password', { currentPassword, newPassword });
     },
 
     logout: () => {
@@ -123,67 +97,37 @@ export const quizService = {
     // Quiz Management
     createQuiz: async (quiz: Quiz): Promise<Quiz> => {
         console.log('API createQuiz called with:', quiz);
-        const response = await fetch(`${baseURL}/quizzes`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeader(),
-            },
-            body: JSON.stringify(quiz),
-        });
-        const data = await handleResponse(response);
-        console.log('API createQuiz response:', data);
-        return data;
+        const response = await api.post<Quiz>('/quizzes', quiz);
+        console.log('API createQuiz response:', response.data);
+        return response.data;
     },
 
     getQuizzes: async (): Promise<Quiz[]> => {
-        const response = await fetch(`${baseURL}/quizzes`, {
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+        const response = await api.get<Quiz[]>('/quizzes');
+        return response.data;
     },
 
     getQuiz: async (id: number): Promise<Quiz> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}`, {
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+        const response = await api.get<Quiz>(`/quizzes/${id}`);
+        return response.data;
     },
 
     getQuizAttempts: async (id: number): Promise<QuizSubmission[]> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}/attempts`, {
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+        const response = await api.get<QuizSubmission[]>(`/quizzes/${id}/attempts`);
+        return response.data;
     },
 
     updateQuiz: async (id: number, quiz: Quiz): Promise<Quiz> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeader(),
-            },
-            body: JSON.stringify(quiz),
-        });
-        return handleResponse(response);
+        const response = await api.put<Quiz>(`/quizzes/${id}`, quiz);
+        return response.data;
     },
 
     deleteQuiz: async (id: number): Promise<any> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}`, {
-            method: 'DELETE',
-            headers: getAuthHeader(),
-        });
         try {
-            const data = await handleResponse(response);
-            // If response is empty but status is 204 (No Content) or 200 (OK), consider it successful
-            if (!data && (response.status === 204 || response.status === 200)) {
-                return { success: true };
-            }
-            return data;
+            const response = await api.delete(`/quizzes/${id}`);
+            return response.data || { success: true };
         } catch (error: any) {
-            // If we get a 409 Conflict, it means the quiz has submissions
-            if (error.status === 409) {
+            if (error.response?.status === 409) {
                 return { hasSubmissions: true };
             }
             throw error;
@@ -191,135 +135,58 @@ export const quizService = {
     },
 
     deleteQuizForce: async (id: number): Promise<void> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}?force=true`, {
-            method: 'DELETE',
-            headers: getAuthHeader(),
-        });
-        try {
-            await handleResponse(response);
-        } catch (error: any) {
-            if (error.status === 409) {
-                throw new Error('Cannot force delete quiz with submissions');
-            }
-            throw error;
-        }
+        await api.delete(`/quizzes/${id}?force=true`);
     },
 
     publishQuiz: async (id: number): Promise<Quiz> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}/publish`, {
-            method: 'POST',
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+        const response = await api.post<Quiz>(`/quizzes/${id}/publish`);
+        return response.data;
     },
 
     // Question Management
     addQuestion: async (quizId: number, question: Question): Promise<Question> => {
-        const response = await fetch(`${baseURL}/quizzes/${quizId}/questions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeader(),
-            },
-            body: JSON.stringify(question),
-        });
-        return handleResponse(response);
+        const response = await api.post<Question>(`/quizzes/${quizId}/questions`, question);
+        return response.data;
+    },
+
+    updateQuestion: async (quizId: number, questionId: number, question: Question): Promise<Question> => {
+        const response = await api.put<Question>(`/quizzes/${quizId}/questions/${questionId}`, question);
+        return response.data;
+    },
+
+    deleteQuestion: async (quizId: number, questionId: number): Promise<void> => {
+        await api.delete(`/quizzes/${quizId}/questions/${questionId}`);
     },
 
     // Quiz Taking
-    startQuiz: async (id: number): Promise<QuizSubmission> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}/start`, {
-            method: 'POST',
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+    startQuiz: async (quizId: number): Promise<QuizSubmission> => {
+        const response = await api.post<QuizSubmission>(`/quizzes/${quizId}/start`);
+        return response.data;
     },
 
-    submitQuiz: async (quizId: number, answers: Record<number, number | string>): Promise<QuizSubmission> => {
-        // Get the quiz first to check question types
-        const quiz = await quizService.getQuiz(quizId);
-        
-        // Format answers based on question type
-        const formattedAnswers = Object.entries(answers).reduce((acc, [questionId, answer]) => {
-            const qId = parseInt(questionId, 10);
-            const question = quiz.questions?.find(q => q.id === qId);
-            
-            if (!question) {
-                return acc;
-            }
-
-            // Format answer based on question type
-            switch (question.type) {
-                case 'MULTIPLE_CHOICE':
-                case 'TRUE_FALSE':
-                    // These must be numbers (answer IDs)
-                    if (typeof answer === 'number') {
-                        acc[qId] = answer;
-                    } else if (typeof answer === 'string') {
-                        const numAnswer = parseInt(answer, 10);
-                        if (!isNaN(numAnswer)) {
-                            acc[qId] = numAnswer;
-                        }
-                    }
-                    break;
-                case 'SHORT_ANSWER':
-                    // For short answers, send the text
-                    acc[qId] = String(answer).trim();
-                    break;
-                default:
-                    acc[qId] = String(answer).trim();
-            }
-            return acc;
-        }, {} as Record<number, number | string>);
-
-        console.log('Submitting answers:', formattedAnswers);
-
-        const response = await fetch(`${baseURL}/quizzes/${quizId}/submit`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeader(),
-            },
-            body: JSON.stringify({ answers: formattedAnswers }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Server error response:', errorData);
-            throw {
-                status: response.status,
-                data: errorData
-            };
-        }
-
-        return handleResponse(response);
+    submitQuiz: async (quizId: number, answers: Record<number, any>): Promise<QuizSubmission> => {
+        const response = await api.post<QuizSubmission>(`/quizzes/${quizId}/submit`, { answers });
+        return response.data;
     },
 
-    getSubmission: async (id: number): Promise<QuizSubmission> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}/submission`, {
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+    getSubmission: async (quizId: number): Promise<QuizSubmission> => {
+        const response = await api.get<QuizSubmission>(`/quizzes/${quizId}/submission`);
+        return response.data;
     },
 
-    getSubmissionById: async (id: number): Promise<QuizSubmission> => {
-        const response = await fetch(`${baseURL}/submissions/${id}`, {
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+    getSubmissionById: async (submissionId: number): Promise<QuizSubmission> => {
+        const response = await api.get<QuizSubmission>(`/submissions/${submissionId}`);
+        return response.data;
     },
 
-    getQuizAnalytics: async (id: number): Promise<any> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}/analytics`, {
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+    // Analytics and Reports
+    getQuizAnalytics: async (quizId: number): Promise<any> => {
+        const response = await api.get(`/quizzes/${quizId}/analytics`);
+        return response.data;
     },
 
-    getQuizReport: async (id: number): Promise<any> => {
-        const response = await fetch(`${baseURL}/quizzes/${id}/report`, {
-            headers: getAuthHeader(),
-        });
-        return handleResponse(response);
+    getQuizReport: async (quizId: number): Promise<any> => {
+        const response = await api.get(`/quizzes/${quizId}/report`);
+        return response.data;
     },
 };

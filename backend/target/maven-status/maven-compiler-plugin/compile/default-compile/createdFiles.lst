@@ -1,3 +1,4 @@
+com/quizplatform/controllers/QuizController$1.class
 com/quizplatform/models/Quiz.class
 com/quizplatform/models/QuizSubmission.class
 com/quizplatform/middleware/AuthMiddleware.class
