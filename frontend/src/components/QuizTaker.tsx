@@ -38,7 +38,6 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({ quizId, onComplete }) => {
             }
         } catch (error) {
             setError('Error loading quiz. Please try again.');
-            console.error('Error loading quiz:', error);
         } finally {
             setLoading(false);
         }
@@ -54,7 +53,6 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({ quizId, onComplete }) => {
             navigate(`/quiz-submission/${result.id}`);
         } catch (error) {
             setError('Error submitting quiz. Please try again.');
-            console.error('Error submitting quiz:', error);
         }
     }, [quizId, answers, onComplete, navigate]);
 
@@ -116,7 +114,6 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({ quizId, onComplete }) => {
             }));
         } catch (error) {
             setError('Error uploading file. Please try again.');
-            console.error('Error uploading file:', error);
         }
     };
 

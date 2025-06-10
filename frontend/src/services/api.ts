@@ -1,7 +1,7 @@
 import { Quiz, Question, QuizSubmission, User } from '../types/quiz';
 import axios, { AxiosResponse } from 'axios';
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:7000/api';
+const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 interface AuthResponse {
     token: string;
@@ -25,8 +25,6 @@ api.interceptors.request.use((config) => {
 });
 
 const handleResponse = async (response: Response) => {
-    console.log('API response status:', response.status);
-    
     // Check if response is empty
     const text = await response.text();
     if (!text) {
@@ -41,7 +39,6 @@ const handleResponse = async (response: Response) => {
     
     // Parse the response text as JSON
     const data = JSON.parse(text);
-    console.log('API response data:', data);
     
     if (!response.ok) {
         throw {
@@ -96,9 +93,7 @@ export const authService = {
 export const quizService = {
     // Quiz Management
     createQuiz: async (quiz: Quiz): Promise<Quiz> => {
-        console.log('API createQuiz called with:', quiz);
         const response = await api.post<Quiz>('/quizzes', quiz);
-        console.log('API createQuiz response:', response.data);
         return response.data;
     },
 

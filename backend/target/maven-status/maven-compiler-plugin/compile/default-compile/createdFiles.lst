@@ -27,5 +27,6 @@ com/quizplatform/models/User$UserRole.class
 com/quizplatform/repositories/QuizRepository.class
 com/quizplatform/models/Question.class
 com/quizplatform/models/User.class
+com/quizplatform/config/AppConfig.class
 com/quizplatform/repositories/QuizAttemptRepository.class
 com/quizplatform/repositories/QuizSubmissionRepository.class

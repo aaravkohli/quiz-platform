@@ -39,7 +39,6 @@ public class QuizRepository implements BaseRepository<Quiz> {
                 }
             }
 
-            // Save questions and answers
             if (quiz.getQuestions() != null) {
                 System.out.println("Saving " + quiz.getQuestions().size() + " questions");
                 for (int i = 0; i < quiz.getQuestions().size(); i++) {
@@ -53,14 +52,12 @@ public class QuizRepository implements BaseRepository<Quiz> {
                 }
             }
 
-            // Fetch the complete quiz with questions
             String selectSql = "SELECT * FROM quizzes WHERE id = ?";
             try (PreparedStatement selectStmt = conn.prepareStatement(selectSql)) {
                 selectStmt.setLong(1, quiz.getId());
                 try (ResultSet rs = selectStmt.executeQuery()) {
                     if (rs.next()) {
                         Quiz createdQuiz = mapResultSetToQuiz(rs);
-                        // Fetch questions with answers
                         System.out.println("Fetching questions for quiz ID: " + quiz.getId());
                         List<Question> questions = questionRepository.findByQuizId(quiz.getId(), true);
                         System.out.println("Found " + questions.size() + " questions");
@@ -95,7 +92,6 @@ public class QuizRepository implements BaseRepository<Quiz> {
         }
     }
 
-    // Add a new method for instructors to view quiz with correct answers
     public Optional<Quiz> findByIdWithAnswers(Long id) {
         String sql = "SELECT * FROM quizzes WHERE id = ?";
         try (Connection connection = Main.getDataSource().getConnection();
@@ -104,7 +100,6 @@ public class QuizRepository implements BaseRepository<Quiz> {
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     Quiz quiz = mapResultSetToQuiz(rs);
-                    // Get questions with correct answers for instructors
                     quiz.setQuestions(questionRepository.findByQuizId(quiz.getId(), true));
                     return Optional.of(quiz);
                 }
@@ -155,7 +150,6 @@ public class QuizRepository implements BaseRepository<Quiz> {
         }
     }
 
-    // Implementation for student: return all published quizzes for now
     public List<Quiz> findAvailableForStudent(Long studentId) {
         return findPublishedQuizzes();
     }
@@ -199,35 +193,30 @@ public class QuizRepository implements BaseRepository<Quiz> {
     @Override
     public void delete(Long id) {
         try (Connection connection = Main.getDataSource().getConnection()) {
-            // Delete all submission answers for this quiz's submissions
             String deleteSubmissionAnswers = "DELETE FROM submission_answers WHERE submission_id IN (SELECT id FROM quiz_submissions WHERE quiz_id = ?)";
             try (PreparedStatement stmt = connection.prepareStatement(deleteSubmissionAnswers)) {
                 stmt.setLong(1, id);
                 stmt.executeUpdate();
             }
             
-            // Delete all submissions for this quiz
             String deleteSubmissions = "DELETE FROM quiz_submissions WHERE quiz_id = ?";
             try (PreparedStatement stmt = connection.prepareStatement(deleteSubmissions)) {
                 stmt.setLong(1, id);
                 stmt.executeUpdate();
             }
             
-            // Delete all answers for this quiz's questions
             String deleteAnswers = "DELETE FROM answers WHERE question_id IN (SELECT id FROM questions WHERE quiz_id = ?)";
             try (PreparedStatement stmt = connection.prepareStatement(deleteAnswers)) {
                 stmt.setLong(1, id);
                 stmt.executeUpdate();
             }
             
-            // Delete all questions for this quiz
             String deleteQuestions = "DELETE FROM questions WHERE quiz_id = ?";
             try (PreparedStatement stmt = connection.prepareStatement(deleteQuestions)) {
                 stmt.setLong(1, id);
                 stmt.executeUpdate();
             }
             
-            // Finally, delete the quiz
             String deleteQuiz = "DELETE FROM quizzes WHERE id = ?";
             try (PreparedStatement stmt = connection.prepareStatement(deleteQuiz)) {
                 stmt.setLong(1, id);
@@ -249,7 +238,7 @@ public class QuizRepository implements BaseRepository<Quiz> {
             quiz.setIsPublished(rs.getBoolean("is_published"));
             quiz.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
             quiz.setUpdatedAt(rs.getTimestamp("updated_at").toLocalDateTime());
-            quiz.setQuestions(new ArrayList<>()); // Initialize with empty list
+            quiz.setQuestions(new ArrayList<>()); 
             return quiz;
         } catch (Exception e) {
             e.printStackTrace();
@@ -265,7 +254,7 @@ public class QuizRepository implements BaseRepository<Quiz> {
             stmt.setString(2, question.getQuestionText());
             stmt.setString(3, question.getType().name());
             stmt.setInt(4, question.getPoints());
-            stmt.setInt(5, question.getOrder() != null ? question.getOrder() : 1); // Default to 1 if not provided
+            stmt.setInt(5, question.getOrder() != null ? question.getOrder() : 1); 
             stmt.executeUpdate();
 
             try (ResultSet rs = stmt.getGeneratedKeys()) {
@@ -274,17 +263,16 @@ public class QuizRepository implements BaseRepository<Quiz> {
                 }
             }
 
-            // Add answers if provided
             if (question.getAnswers() != null && !question.getAnswers().isEmpty()) {
                 String answerSql = "INSERT INTO answers (question_id, answer_text, is_correct, answer_order) VALUES (?, ?, ?, ?)";
                 try (PreparedStatement answerStmt = conn.prepareStatement(answerSql, Statement.RETURN_GENERATED_KEYS)) {
                     for (int i = 0; i < question.getAnswers().size(); i++) {
                         Answer answer = question.getAnswers().get(i);
-                        answer.setQuestionId(question.getId()); // Set the question ID
+                        answer.setQuestionId(question.getId());
                         answerStmt.setLong(1, question.getId());
                         answerStmt.setString(2, answer.getAnswerText());
                         answerStmt.setBoolean(3, answer.getIsCorrect());
-                        answerStmt.setInt(4, answer.getAnswerOrder() != null ? answer.getAnswerOrder() : i + 1); // Default to position in list if not provided
+                        answerStmt.setInt(4, answer.getAnswerOrder() != null ? answer.getAnswerOrder() : i + 1); 
                         answerStmt.executeUpdate();
 
                         try (ResultSet answerRs = answerStmt.getGeneratedKeys()) {
@@ -296,7 +284,6 @@ public class QuizRepository implements BaseRepository<Quiz> {
                 }
             }
 
-            // Fetch the complete question with answers
             String selectSql = "SELECT q.*, a.id as answer_id, a.answer_text, a.is_correct, a.answer_order " +
                              "FROM questions q " +
                              "LEFT JOIN answers a ON q.id = a.question_id " +

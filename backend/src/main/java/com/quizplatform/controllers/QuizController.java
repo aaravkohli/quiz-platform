@@ -26,7 +26,6 @@ public class QuizController extends BaseController {
 
     public void createQuiz(Context ctx) {
         try {
-            // Only instructors can create quizzes
             User.UserRole userRole = (User.UserRole) ctx.attribute("userRole");
             if (userRole != User.UserRole.INSTRUCTOR) {
                 errorResponse(ctx, 403, "Instructor access required");
@@ -37,13 +36,12 @@ public class QuizController extends BaseController {
             System.out.println("Received quiz data: " + quiz);
             System.out.println("Questions in received quiz: " + (quiz.getQuestions() != null ? quiz.getQuestions().size() : 0));
             
-            // Validate quiz has questions
             if (quiz.getQuestions() == null || quiz.getQuestions().isEmpty()) {
                 errorResponse(ctx, 400, "Quiz must have at least one question");
                 return;
             }
 
-            // Validate each question has answers
+
             for (Question question : quiz.getQuestions()) {
                 System.out.println("Processing question: " + question.getQuestionText());
                 System.out.println("Question type: " + question.getType());
@@ -73,7 +71,6 @@ public class QuizController extends BaseController {
             System.out.println("Created quiz: " + createdQuiz);
             System.out.println("Questions in created quiz: " + (createdQuiz.getQuestions() != null ? createdQuiz.getQuestions().size() : 0));
             
-            // Fetch the complete quiz with questions before sending response
             Optional<Quiz> completeQuiz = quizRepository.findByIdWithAnswers(createdQuiz.getId());
             if (completeQuiz.isPresent()) {
                 jsonResponse(ctx, completeQuiz.get());
@@ -195,7 +192,6 @@ public class QuizController extends BaseController {
             Long quizId = Long.parseLong(ctx.pathParam("id"));
             Question question = parseBody(ctx, Question.class);
             
-            // Verify quiz ownership
             Quiz quiz = quizRepository.findById(quizId).orElse(null);
             if (quiz == null) {
                 errorResponse(ctx, 404, "Quiz not found");
@@ -217,7 +213,6 @@ public class QuizController extends BaseController {
 
     public void publishQuiz(Context ctx) {
         try {
-            // Only instructors can publish quizzes
             User.UserRole userRole = (User.UserRole) ctx.attribute("userRole");
             if (userRole != User.UserRole.INSTRUCTOR) {
                 errorResponse(ctx, 403, "Instructor access required");
@@ -283,7 +278,6 @@ public class QuizController extends BaseController {
             
             System.out.println("Starting quiz " + quizId + " for student " + studentId);
             
-            // Verify quiz exists and is published
             Optional<Quiz> quiz = quizRepository.findById(quizId);
             if (!quiz.isPresent()) {
                 System.out.println("Quiz " + quizId + " not found");
@@ -297,7 +291,6 @@ public class QuizController extends BaseController {
             }
 
             System.out.println("Creating submission for quiz " + quizId);
-            // Create new submission
             QuizSubmission submission = new QuizSubmission();
             submission.setQuizId(quizId);
             submission.setStudentId(studentId);
@@ -311,7 +304,7 @@ public class QuizController extends BaseController {
             System.out.println("Created submission with ID: " + createdSubmission.getId());
             ctx.json(createdSubmission);
         } catch (Exception e) {
-            e.printStackTrace(); // Add stack trace
+            e.printStackTrace(); 
             ctx.status(500).json(Map.of("error", "Error starting quiz: " + e.getMessage()));
         }
     }
@@ -321,7 +314,6 @@ public class QuizController extends BaseController {
             Long quizId = Long.parseLong(ctx.pathParam("id"));
             Long studentId = getCurrentUserId(ctx);
             
-            // Get the submission
             List<QuizSubmission> submissions = submissionRepository.findByStudentId(studentId);
             QuizSubmission submission = submissions.stream()
                 .filter(s -> s.getQuizId().equals(quizId) && s.getCompletedAt() == null)
@@ -333,25 +325,21 @@ public class QuizController extends BaseController {
                 return;
             }
 
-            // Get the quiz to calculate score
             Optional<Quiz> quiz = quizRepository.findByIdWithAnswers(quizId);
             if (!quiz.isPresent()) {
                 ctx.status(404).json(Map.of("error", "Quiz not found"));
                 return;
             }
 
-            // Parse submitted answers
             Map<String, Object> body = ctx.bodyAsClass(Map.class);
             @SuppressWarnings("unchecked")
             Map<String, Object> submittedAnswers = (Map<String, Object>) body.get("answers");
             
-            // Convert string keys to Long and handle both string and number values
             Map<Long, Object> answers = new HashMap<>();
             for (Map.Entry<String, Object> entry : submittedAnswers.entrySet()) {
                 Long questionId = Long.parseLong(entry.getKey());
                 Object value = entry.getValue();
                 
-                // Convert non-numeric values to strings
                 if (value instanceof String) {
                     answers.put(questionId, value);
                 } else if (value instanceof Number) {
@@ -362,13 +350,11 @@ public class QuizController extends BaseController {
             }
             submission.setAnswers(answers);
 
-            // Calculate score
             int totalScore = calculateScore(quiz.get(), answers);
             submission.setScore(totalScore);
             submission.setCompletedAt(LocalDateTime.now());
             submission.setSubmittedAt(LocalDateTime.now());
 
-            // Update submission
             QuizSubmission updatedSubmission = submissionRepository.update(submission);
             ctx.json(updatedSubmission);
         } catch (Exception e) {
@@ -495,7 +481,6 @@ public class QuizController extends BaseController {
             System.out.println("User Role: " + userRole);
             System.out.println("Auth Header: " + ctx.header("Authorization"));
             
-            // Verify quiz ownership
             Quiz quiz = quizRepository.findById(quizId).orElse(null);
             if (quiz == null) {
                 System.out.println("Quiz " + quizId + " not found");
@@ -535,7 +520,6 @@ public class QuizController extends BaseController {
             System.out.println("Instructor ID: " + instructorId);
             System.out.println("User Role: " + userRole);
             
-            // Verify quiz ownership
             Quiz quiz = quizRepository.findById(quizId).orElse(null);
             if (quiz == null) {
                 System.out.println("Quiz " + quizId + " not found");
@@ -552,13 +536,11 @@ public class QuizController extends BaseController {
             List<QuizSubmission> submissions = submissionRepository.findByQuizId(quizId);
             System.out.println("Found " + submissions.size() + " submissions for quiz " + quizId);
             
-            // Calculate statistics
             double avgScore = submissions.stream().mapToInt(QuizSubmission::getScore).average().orElse(0.0);
             int totalAttempts = submissions.size();
             long completedAttempts = submissions.stream().filter(s -> s.getCompletedAt() != null).count();
             double completionRate = totalAttempts > 0 ? (double) completedAttempts / totalAttempts : 0.0;
             
-            // Calculate average time spent (in minutes)
             double avgTimeSpent = submissions.stream()
                 .filter(s -> s.getStartedAt() != null && s.getCompletedAt() != null)
                 .mapToDouble(s -> java.time.Duration.between(s.getStartedAt(), s.getCompletedAt()).toMinutes())
@@ -591,7 +573,6 @@ public class QuizController extends BaseController {
             System.out.println("Instructor ID: " + instructorId);
             System.out.println("User Role: " + userRole);
             
-            // Verify quiz ownership
             Quiz quiz = quizRepository.findById(quizId).orElse(null);
             if (quiz == null) {
                 System.out.println("Quiz " + quizId + " not found");

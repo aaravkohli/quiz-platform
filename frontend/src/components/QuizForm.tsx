@@ -49,10 +49,6 @@ export const QuizForm: React.FC = () => {
             setLoading(true);
             setError(null);
 
-            // Log initial state
-            console.log('Initial quiz state:', JSON.stringify(quiz, null, 2));
-            console.log('Initial questions:', JSON.stringify(quiz.questions, null, 2));
-
             // Validate that quiz has at least one question
             if (!quiz.questions || quiz.questions.length === 0) {
                 setError('Quiz must have at least one question.');
@@ -63,28 +59,16 @@ export const QuizForm: React.FC = () => {
             // Create a new quiz object with all required data
             const quizData = {
                 ...quiz,
-                questions: quiz.questions.map((question, index) => {
-                    // Log each question's answers before processing
-                    console.log(`Question ${index + 1} before processing:`, JSON.stringify(question, null, 2));
-                    
-                    const processedQuestion = {
+                questions: quiz.questions.map((question, index) => ({
                     ...question,
                     quizId: id ? parseInt(id) : undefined,
                     order: index + 1,
-                        answers: question.answers.map(answer => {
-                            const processedAnswer = {
+                    answers: question.answers.map(answer => ({
                         ...answer,
                         answerText: answer.answerText.trim(),
-                                isCorrect: Boolean(answer.isCorrect)
-                            };
-                            console.log(`Processed answer:`, JSON.stringify(processedAnswer, null, 2));
-                            return processedAnswer;
-                        })
-                    };
-                    
-                    console.log(`Question ${index + 1} after processing:`, JSON.stringify(processedQuestion, null, 2));
-                    return processedQuestion;
-                })
+                        isCorrect: Boolean(answer.isCorrect)
+                    }))
+                }))
             };
 
             // Remove any undefined or null values and ensure proper data structure
@@ -99,8 +83,6 @@ export const QuizForm: React.FC = () => {
                 }))
             };
 
-            console.log('Final quiz data being sent:', JSON.stringify(cleanQuizData, null, 2));
-
             let createdQuiz;
             if (id) {
                 createdQuiz = await quizService.updateQuiz(parseInt(id), cleanQuizData);
@@ -108,10 +90,8 @@ export const QuizForm: React.FC = () => {
                 createdQuiz = await quizService.createQuiz(cleanQuizData);
             }
 
-            console.log('Created/Updated quiz response:', JSON.stringify(createdQuiz, null, 2));
             navigate('/quizzes');
         } catch (error) {
-            console.error('Error saving quiz:', error);
             setError('Error saving quiz. Please try again.');
         } finally {
             setLoading(false);

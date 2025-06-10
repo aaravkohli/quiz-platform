@@ -83,14 +83,11 @@ export const QuizList: React.FC<QuizListProps> = ({ user, showOnlyMyQuizzes = fa
     const handlePublishQuiz = async (quizId: number) => {
         try {
             setError(null);
-            console.log('Starting quiz publish process for quiz ID:', quizId);
             
             // First get the quiz to check if it has questions
             const quiz = await quizService.getQuiz(quizId);
-            console.log('Quiz to publish:', quiz);
             
             if (!quiz.questions || quiz.questions.length === 0) {
-                console.log('Quiz has no questions');
                 setError('Cannot publish quiz: Quiz must have at least one question.');
                 return;
             }
@@ -99,32 +96,21 @@ export const QuizList: React.FC<QuizListProps> = ({ user, showOnlyMyQuizzes = fa
             const invalidQuestions = quiz.questions.filter(question => {
                 if (question.type === 'MULTIPLE_CHOICE' || question.type === 'TRUE_FALSE') {
                     const correctAnswers = question.answers?.filter(answer => answer.isCorrect) || [];
-                    console.log(`Question ${question.id} has ${correctAnswers.length} correct answers`);
                     return correctAnswers.length !== 1;
                 }
                 return false;
             });
 
             if (invalidQuestions.length > 0) {
-                console.log('Found invalid questions:', invalidQuestions);
                 setError('Cannot publish quiz: Multiple choice and true/false questions must have exactly one correct answer.');
                 return;
             }
 
-            console.log('Calling publishQuiz API for quiz ID:', quizId);
             const updatedQuiz = await quizService.publishQuiz(quizId);
-            console.log('Published quiz response:', updatedQuiz);
             
             // Update the quizzes list with the published quiz
             setQuizzes(quizzes.map(q => q.id === quizId ? updatedQuiz : q));
-            console.log('Updated quizzes list');
         } catch (error: any) {
-            console.error('Error publishing quiz:', error);
-            console.error('Error details:', {
-                status: error.response?.status,
-                data: error.response?.data,
-                message: error.message
-            });
             // Handle specific error messages from the API
             if (error.response?.status === 400 && error.response?.data?.message) {
                 setError(error.response.data.message);

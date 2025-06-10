@@ -20,6 +20,7 @@
         <bcrypt.version>0.10.2</bcrypt.version>
         <java-jwt.version>4.4.0</java-jwt.version>
         <flyway.version>9.22.3</flyway.version>
+        <spring-boot.version>3.1.5</spring-boot.version>
     </properties>
 
     <dependencies>
@@ -131,6 +132,18 @@
                     <user>postgres</user>
                     <password>postgres</password>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

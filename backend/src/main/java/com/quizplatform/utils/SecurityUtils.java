@@ -5,13 +5,13 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.quizplatform.models.User;
+import com.quizplatform.config.AppConfig;
 import at.favre.lib.crypto.bcrypt.BCrypt;
 
 import java.util.Date;
 
 public class SecurityUtils {
-    private static final String JWT_SECRET = "your-secret-key"; // TODO: Move to environment variable
-    private static final Algorithm algorithm = Algorithm.HMAC256(JWT_SECRET);
+    private static final Algorithm algorithm = Algorithm.HMAC256(AppConfig.getJwtSecret());
     private static final JWTVerifier verifier = JWT.require(algorithm).build();
     private static final long TOKEN_EXPIRATION = 24 * 60 * 60 * 1000; // 24 hours
 
