@@ -17,6 +17,8 @@ import java.util.Set;
 import org.flywaydb.core.Flyway;
 import java.util.Map;
 import com.quizplatform.utils.SecurityUtils;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 public class Main {
     private static HikariDataSource dataSource;
@@ -218,12 +220,32 @@ public class Main {
             String dbUrl = System.getenv().getOrDefault("DATABASE_URL", 
                 "postgresql://quiz_platform_db_user:EZ8IhYi0YV4G19zHmYmGE6kN4Rgkdj7d@dpg-d14ib7h5pdvs73f77kdg-a.singapore-postgres.render.com/quiz_platform_db");
 
+            // Ensure the URL starts with jdbc:
+            if (!dbUrl.startsWith("jdbc:")) {
+                dbUrl = "jdbc:" + dbUrl;
+            }
+
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl(dbUrl);
+            config.setDriverClassName("org.postgresql.Driver");
             config.setMaximumPoolSize(10);
+            config.setConnectionTimeout(30000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            
+            // Add connection test query
+            config.setConnectionTestQuery("SELECT 1");
+            
             dataSource = new HikariDataSource(config);
+            
+            // Test the connection
+            try (Connection conn = dataSource.getConnection()) {
+                System.out.println("Successfully connected to the database!");
+            }
         } catch (ClassNotFoundException e) {
             throw new RuntimeException("Failed to load PostgreSQL driver", e);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to connect to the database", e);
         }
     }
 

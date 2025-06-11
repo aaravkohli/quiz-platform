@@ -16,5 +16,5 @@ ENV JWT_SECRET=zBttzkQxkeGhKkoZOikQU5NhF2F3nvDwby423ic/LMI=
 # Expose the port
 EXPOSE ${PORT}
 
-# Run the application
-CMD ["sh", "-c", "java -jar app.jar"] 
+# Run the application with debug logging
+CMD ["sh", "-c", "java -Dorg.slf4j.simpleLogger.logLevel=DEBUG -jar app.jar"] 
