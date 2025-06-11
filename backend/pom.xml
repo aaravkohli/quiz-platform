@@ -157,9 +157,9 @@
                 <artifactId>flyway-maven-plugin</artifactId>
                 <version>9.22.3</version>
                 <configuration>
-                    <url>jdbc:postgresql://localhost:5432/quiz_platform</url>
-                    <user>postgres</user>
-                    <password>postgres</password>
+                    <url>${env.DB_URL}</url>
+                    <user>${env.DB_USER}</user>
+                    <password>${env.DB_PASSWORD}</password>
                 </configuration>
             </plugin>
         </plugins>

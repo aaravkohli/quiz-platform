@@ -31,6 +31,7 @@ public class Main {
                 cors.add(it -> {
                     it.allowHost("http://localhost:3000");
                     it.allowHost("http://localhost");
+                    it.allowHost("https://*.vercel.app");
                     it.allowCredentials = true;
                 });
             });
@@ -203,7 +204,10 @@ public class Main {
         app.post("/api/quizzes/{id}/submit", quizController::submitQuiz, User.UserRole.STUDENT);
         app.get("/api/quizzes/{id}/submission", quizController::getSubmission, User.UserRole.STUDENT);
         app.get("/api/submissions/{id}", quizController::getSubmissionById);
-        app.start(8080);
+
+        // Get port from environment variable or use default
+        int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
+        app.start(port);
     }
 
     private static void initializeDatabase() {
