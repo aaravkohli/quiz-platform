@@ -6,7 +6,7 @@ interface AuthResponse {
     user: User;
 }
 
-const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const baseURL = process.env.REACT_APP_API_URL || 'https://quiz-platform-backend-44ba.onrender.com';
 
 const api = axios.create({
     baseURL,
