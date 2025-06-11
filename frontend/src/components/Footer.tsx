@@ -71,6 +71,12 @@ const Footer: React.FC = () => {
               © {new Date().getFullYear()} Aarav Kohli. All rights reserved.
             </p>
             <div className="mt-4 md:mt-0 flex space-x-6">
+              <a href="/" className="text-gray-300 hover:text-white">
+                Home
+              </a>
+              <a href="/about" className="text-gray-300 hover:text-white">
+                About
+              </a>
               <a href="#" className="text-gray-300 hover:text-white transition-colors duration-200">
                 Privacy Policy
               </a>

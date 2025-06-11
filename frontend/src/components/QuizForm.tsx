@@ -15,12 +15,6 @@ export const QuizForm: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (id) {
-            loadQuiz();
-        }
-    }, [id]);
-
     const loadQuiz = async () => {
         try {
             setLoading(true);
@@ -42,6 +36,12 @@ export const QuizForm: React.FC = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (id) {
+            loadQuiz();
+        }
+    }, [id, loadQuiz]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -83,11 +83,10 @@ export const QuizForm: React.FC = () => {
                 }))
             };
 
-            let createdQuiz;
             if (id) {
-                createdQuiz = await quizService.updateQuiz(parseInt(id), cleanQuizData);
+                await quizService.updateQuiz(parseInt(id), cleanQuizData);
             } else {
-                createdQuiz = await quizService.createQuiz(cleanQuizData);
+                await quizService.createQuiz(cleanQuizData);
             }
 
             navigate('/quizzes');

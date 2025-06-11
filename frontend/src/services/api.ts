@@ -1,5 +1,5 @@
 import { Quiz, Question, QuizSubmission, User } from '../types/quiz';
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 
 interface AuthResponse {
     token: string;

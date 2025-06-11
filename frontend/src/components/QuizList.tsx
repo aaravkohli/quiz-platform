@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Quiz } from '../types/quiz';
 import { quizService } from '../services/api';
 import { User } from '../types/quiz';
-import { useAuth } from '../contexts/AuthContext';
 
 interface QuizListProps {
     user: User;
@@ -17,7 +16,6 @@ export const QuizList: React.FC<QuizListProps> = ({ user, showOnlyMyQuizzes = fa
     const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
     const [showForceDelete, setShowForceDelete] = useState(false);
     const [forceDeleteQuiz, setForceDeleteQuiz] = useState<Quiz | null>(null);
-    const navigate = useNavigate();
 
     useEffect(() => {
         loadQuizzes();

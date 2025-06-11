@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { quizService } from '../services/api';
-import { Quiz, QuizSubmission, Question } from '../types/quiz';
+import { Quiz, QuizSubmission, Answer, QuestionType } from '../types/quiz';
 
 interface QuizTakerProps {
     quizId: number;
