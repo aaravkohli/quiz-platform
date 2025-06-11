@@ -217,16 +217,18 @@ public class Main {
             // Explicitly load the PostgreSQL driver
             Class.forName("org.postgresql.Driver");
             
+            // Use the internal connection string for Render
             String dbUrl = System.getenv().getOrDefault("DATABASE_URL", 
-                "postgresql://quiz_platform_db_user:EZ8IhYi0YV4G19zHmYmGE6kN4Rgkdj7d@dpg-d14ib7h5pdvs73f77kdg-a.singapore-postgres.render.com/quiz_platform_db");
+                "jdbc:postgresql://dpg-d14ib7h5pdvs73f77kdg-a/quiz_platform_db");
+            String dbUser = System.getenv().getOrDefault("DB_USER", "quiz_platform_db_user");
+            String dbPassword = System.getenv().getOrDefault("DB_PASSWORD", "EZ8IhYi0YV4G19zHmYmGE6kN4Rgkdj7d");
 
-            // Ensure the URL starts with jdbc:
-            if (!dbUrl.startsWith("jdbc:")) {
-                dbUrl = "jdbc:" + dbUrl;
-            }
-
+            System.out.println("Connecting to database with URL: " + dbUrl);
+            
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl(dbUrl);
+            config.setUsername(dbUser);
+            config.setPassword(dbPassword);
             config.setDriverClassName("org.postgresql.Driver");
             config.setMaximumPoolSize(10);
             config.setConnectionTimeout(30000);
@@ -245,7 +247,7 @@ public class Main {
         } catch (ClassNotFoundException e) {
             throw new RuntimeException("Failed to load PostgreSQL driver", e);
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to connect to the database", e);
+            throw new RuntimeException("Failed to connect to the database: " + e.getMessage(), e);
         }
     }
 
