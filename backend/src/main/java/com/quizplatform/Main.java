@@ -211,16 +211,11 @@ public class Main {
     }
 
     private static void initializeDatabase() {
-        String dbHost = System.getenv().getOrDefault("DB_HOST", "db");
-        String dbPort = System.getenv().getOrDefault("DB_PORT", "5432");
-        String dbName = System.getenv().getOrDefault("DB_NAME", "quiz_platform");
-        String dbUser = System.getenv().getOrDefault("DB_USER", "postgres");
-        String dbPassword = System.getenv().getOrDefault("DB_PASSWORD", "postgres");
+        String dbUrl = System.getenv().getOrDefault("DATABASE_URL", 
+            "postgresql://quiz_platform_db_user:EZ8IhYi0YV4G19zHmYmGE6kN4Rgkdj7d@dpg-d14ib7h5pdvs73f77kdg-a.singapore-postgres.render.com/quiz_platform_db");
 
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(String.format("jdbc:postgresql://%s:%s/%s", dbHost, dbPort, dbName));
-        config.setUsername(dbUser);
-        config.setPassword(dbPassword);
+        config.setJdbcUrl(dbUrl);
         config.setMaximumPoolSize(10);
         dataSource = new HikariDataSource(config);
     }

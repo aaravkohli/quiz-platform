@@ -157,9 +157,7 @@
                 <artifactId>flyway-maven-plugin</artifactId>
                 <version>9.22.3</version>
                 <configuration>
-                    <url>${env.DB_URL}</url>
-                    <user>${env.DB_USER}</user>
-                    <password>${env.DB_PASSWORD}</password>
+                    <url>${env.DATABASE_URL}</url>
                 </configuration>
             </plugin>
         </plugins>
