@@ -22,31 +22,45 @@ const QuizTakerWrapper = () => {
 const ProtectedRoute = ({ children, requireInstructor = false }: { children: React.ReactNode, requireInstructor?: boolean }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [authChecked, setAuthChecked] = useState(false);
 
     useEffect(() => {
         const checkAuth = async () => {
             try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    setUser(null);
+                    setLoading(false);
+                    setAuthChecked(true);
+                    return;
+                }
                 const currentUser = await authService.getCurrentUser();
                 setUser(currentUser);
             } catch (error) {
                 setUser(null);
+                localStorage.removeItem('token');
             } finally {
                 setLoading(false);
+                setAuthChecked(true);
             }
         };
         checkAuth();
     }, []);
 
-    if (loading) {
-        return <div>Loading...</div>;
+    if (loading && !authChecked) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-neutral-light">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-color"></div>
+            </div>
+        );
     }
 
     if (!user) {
-        return <Navigate to="/login" />;
+        return <Navigate to="/login" replace />;
     }
 
     if (requireInstructor && user.role !== 'INSTRUCTOR') {
-        return <Navigate to="/" />;
+        return <Navigate to="/" replace />;
     }
 
     return <>{children}</>;
@@ -55,31 +69,46 @@ const ProtectedRoute = ({ children, requireInstructor = false }: { children: Rea
 const App = () => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [authChecked, setAuthChecked] = useState(false);
 
     useEffect(() => {
         const checkAuth = async () => {
             try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    setUser(null);
+                    setLoading(false);
+                    setAuthChecked(true);
+                    return;
+                }
                 const currentUser = await authService.getCurrentUser();
                 setUser(currentUser);
             } catch (error) {
                 setUser(null);
+                localStorage.removeItem('token');
             } finally {
                 setLoading(false);
+                setAuthChecked(true);
             }
         };
         checkAuth();
     }, []);
 
     const handleLogin = async () => {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
+        try {
+            const currentUser = await authService.getCurrentUser();
+            setUser(currentUser);
+        } catch (error) {
+            setUser(null);
+            localStorage.removeItem('token');
+        }
     };
 
     const handleProfileUpdate = (updatedUser: User) => {
         setUser(updatedUser);
     };
 
-    if (loading) {
+    if (loading && !authChecked) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-neutral-light">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-color"></div>
