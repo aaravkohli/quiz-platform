@@ -22,10 +22,7 @@ public class Main {
     private static HikariDataSource dataSource;
 
     public static void main(String[] args) {
-        // Initialize database connection
         initializeDatabase();
-
-        // Run database migrations
         runMigrations();
 
         Javalin app = Javalin.create(config -> {
@@ -33,30 +30,26 @@ public class Main {
             config.plugins.enableCors(cors -> {
                 cors.add(it -> {
                     it.allowHost("http://localhost:3000");
+                    it.allowHost("http://localhost");
                     it.allowCredentials = true;
                 });
             });
-            // Add request logging
             config.requestLogger.http((ctx, ms) -> {
                 System.out.println("Request: " + ctx.method() + " " + ctx.path() + " - " + ms + "ms");
             });
             config.accessManager((handler, ctx, permittedRoles) -> {
-                // Get user role from context
                 User.UserRole userRole = (User.UserRole) ctx.attribute("userRole");
                 
-                // If no roles are required, allow access
                 if (permittedRoles.isEmpty()) {
                     handler.handle(ctx);
                     return;
                 }
                 
-                // If user has no role but roles are required, deny access
                 if (userRole == null) {
                     ctx.status(401).result("Unauthorized");
                     return;
                 }
-                
-                // Check if user's role is in the permitted roles
+
                 if (permittedRoles.contains(userRole)) {
                     handler.handle(ctx);
                 } else {
@@ -65,11 +58,11 @@ public class Main {
             });
         });
 
-        // Initialize controllers
+
         UserController userController = new UserController();
         QuizController quizController = new QuizController();
 
-        // Public routes
+
         app.get("/", ctx -> {
             System.out.println("Root endpoint hit!");
             ctx.result("Server is running!");
@@ -79,17 +72,15 @@ public class Main {
         app.get("/health", ctx -> ctx.result("OK"));
         app.get("/api/", ctx -> ctx.result("Quiz Platform API Root"));
 
-        // Protected routes - require authentication
+
         app.before("/api/*", ctx -> {
             System.out.println("AuthMiddleware running for: " + ctx.path());
-            // Skip auth for public routes
             if (ctx.path().equals("/api/users/register") || ctx.path().equals("/api/users/login")) {
                 return;
             }
             AuthMiddleware.requireAuth.handle(ctx);
         });
 
-        // User routes
         app.get("/api/users/me", ctx -> {
             Long userId = (Long) ctx.attribute("userId");
             if (userId == null) {
@@ -101,12 +92,10 @@ public class Main {
         app.get("/api/users/{id}", userController::getProfile);
         app.put("/api/users/{id}", userController::updateProfile);
         
-        // Instructor-only routes
         app.before("/api/users", AuthMiddleware.requireInstructor);
         app.get("/api/users", userController::getAllUsers);
         app.delete("/api/users/{id}", userController::deleteUser);
 
-        // Quiz routes (all now require authentication)
         app.post("/api/quizzes", quizController::createQuiz, User.UserRole.INSTRUCTOR);
         app.get("/api/quizzes", quizController::getQuizzes);
         app.get("/api/quizzes/{id}", quizController::getQuiz);
@@ -114,21 +103,18 @@ public class Main {
         app.delete("/api/quizzes/{id}", quizController::deleteQuiz, User.UserRole.INSTRUCTOR);
         app.post("/api/quizzes/{id}/questions", quizController::addQuestion, User.UserRole.INSTRUCTOR);
         app.post("/api/quizzes/{id}/publish", quizController::publishQuiz, User.UserRole.INSTRUCTOR);
-        
-        // Test route
+
         app.get("/api/test", ctx -> {
             System.out.println("Test route hit!");
             ctx.result("Test route works!");
         });
-        
-        // Quiz attempts route - refactored to a more robust pattern
+
         app.get("/api/quizzes/{id}/attempts", ctx -> {
             System.out.println("=== Quiz Attempts Route ===");
             System.out.println("Request path: " + ctx.path());
             System.out.println("Quiz ID: " + ctx.pathParam("id"));
             System.out.println("Auth header: " + ctx.header("Authorization"));
             try {
-                // First verify authentication
                 String token = ctx.header("Authorization");
                 if (token == null || !token.startsWith("Bearer ")) {
                     ctx.status(401).json(Map.of("error", "Authentication required"));
@@ -144,10 +130,8 @@ public class Main {
                     ctx.status(403).json(Map.of("error", "Instructor access required"));
                     return;
                 }
-                // Set user context
                 ctx.attribute("userId", userId);
                 ctx.attribute("userRole", role);
-                // Call the controller method
                 quizController.getQuizAttempts(ctx);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -155,14 +139,12 @@ public class Main {
             }
         });
 
-        // New endpoint for quiz analytics
         app.get("/api/quizzes/{id}/analytics", ctx -> {
             System.out.println("=== Quiz Analytics Route ===");
             System.out.println("Request path: " + ctx.path());
             System.out.println("Quiz ID: " + ctx.pathParam("id"));
             System.out.println("Auth header: " + ctx.header("Authorization"));
             try {
-                // First verify authentication
                 String token = ctx.header("Authorization");
                 if (token == null || !token.startsWith("Bearer ")) {
                     ctx.status(401).json(Map.of("error", "Authentication required"));
@@ -178,10 +160,8 @@ public class Main {
                     ctx.status(403).json(Map.of("error", "Instructor access required"));
                     return;
                 }
-                // Set user context
                 ctx.attribute("userId", userId);
                 ctx.attribute("userRole", role);
-                // Call the controller method
                 quizController.getQuizAnalytics(ctx);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -189,14 +169,12 @@ public class Main {
             }
         });
 
-        // New endpoint for detailed quiz report
         app.get("/api/quizzes/{id}/report", ctx -> {
             System.out.println("=== Quiz Report Route ===");
             System.out.println("Request path: " + ctx.path());
             System.out.println("Quiz ID: " + ctx.pathParam("id"));
             System.out.println("Auth header: " + ctx.header("Authorization"));
             try {
-                // First verify authentication
                 String token = ctx.header("Authorization");
                 if (token == null || !token.startsWith("Bearer ")) {
                     ctx.status(401).json(Map.of("error", "Authentication required"));
@@ -212,10 +190,8 @@ public class Main {
                     ctx.status(403).json(Map.of("error", "Instructor access required"));
                     return;
                 }
-                // Set user context
                 ctx.attribute("userId", userId);
                 ctx.attribute("userRole", role);
-                // Call the controller method
                 quizController.generateQuizReport(ctx);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -223,21 +199,24 @@ public class Main {
             }
         });
 
-        // Quiz submission routes
         app.post("/api/quizzes/{id}/start", quizController::startQuiz, User.UserRole.STUDENT);
         app.post("/api/quizzes/{id}/submit", quizController::submitQuiz, User.UserRole.STUDENT);
         app.get("/api/quizzes/{id}/submission", quizController::getSubmission, User.UserRole.STUDENT);
         app.get("/api/submissions/{id}", quizController::getSubmissionById);
-
-        // Start the server
-        app.start(7000);
+        app.start(8080);
     }
 
     private static void initializeDatabase() {
+        String dbHost = System.getenv().getOrDefault("DB_HOST", "db");
+        String dbPort = System.getenv().getOrDefault("DB_PORT", "5432");
+        String dbName = System.getenv().getOrDefault("DB_NAME", "quiz_platform");
+        String dbUser = System.getenv().getOrDefault("DB_USER", "postgres");
+        String dbPassword = System.getenv().getOrDefault("DB_PASSWORD", "postgres");
+
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:postgresql://localhost:5432/quiz_platform");
-        config.setUsername("postgres");
-        config.setPassword("postgres");
+        config.setJdbcUrl(String.format("jdbc:postgresql://%s:%s/%s", dbHost, dbPort, dbName));
+        config.setUsername(dbUser);
+        config.setPassword(dbPassword);
         config.setMaximumPoolSize(10);
         dataSource = new HikariDataSource(config);
     }
@@ -250,13 +229,11 @@ public class Main {
                 .baselineOnMigrate(true)
                 .outOfOrder(true)
                 .validateOnMigrate(false)
-                .cleanDisabled(false)  // Enable clean operation
+                .cleanDisabled(false)  
                 .load();
-            
-            // First repair any issues
+
             flyway.repair();
-            
-            // Then run migrations
+
             flyway.migrate();
             
             System.out.println("Database migrations completed successfully");
