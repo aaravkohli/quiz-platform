@@ -211,13 +211,20 @@ public class Main {
     }
 
     private static void initializeDatabase() {
-        String dbUrl = System.getenv().getOrDefault("DATABASE_URL", 
-            "postgresql://quiz_platform_db_user:EZ8IhYi0YV4G19zHmYmGE6kN4Rgkdj7d@dpg-d14ib7h5pdvs73f77kdg-a.singapore-postgres.render.com/quiz_platform_db");
+        try {
+            // Explicitly load the PostgreSQL driver
+            Class.forName("org.postgresql.Driver");
+            
+            String dbUrl = System.getenv().getOrDefault("DATABASE_URL", 
+                "postgresql://quiz_platform_db_user:EZ8IhYi0YV4G19zHmYmGE6kN4Rgkdj7d@dpg-d14ib7h5pdvs73f77kdg-a.singapore-postgres.render.com/quiz_platform_db");
 
-        HikariConfig config = new HikariConfig();
-        config.setJdbcUrl(dbUrl);
-        config.setMaximumPoolSize(10);
-        dataSource = new HikariDataSource(config);
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl(dbUrl);
+            config.setMaximumPoolSize(10);
+            dataSource = new HikariDataSource(config);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Failed to load PostgreSQL driver", e);
+        }
     }
 
     private static void runMigrations() {
