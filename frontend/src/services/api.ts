@@ -24,35 +24,17 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-const handleResponse = async (response: Response) => {
-    // Check if response is empty
-    const text = await response.text();
-    if (!text) {
-        if (!response.ok) {
-            throw {
-                status: response.status,
-                data: { message: 'Empty response from server' }
-            };
+// Add response interceptor to handle errors
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
         }
-        return null;
+        return Promise.reject(error);
     }
-    
-    // Parse the response text as JSON
-    const data = JSON.parse(text);
-    
-    if (!response.ok) {
-        throw {
-            status: response.status,
-            data: data
-        };
-    }
-    return data;
-};
-
-const getAuthHeader = (): Record<string, string> => {
-    const token = localStorage.getItem('token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
-};
+);
 
 export const authService = {
     login: async (email: string, password: string): Promise<User> => {
@@ -125,7 +107,7 @@ export const quizService = {
             if (error.response?.status === 409) {
                 return { hasSubmissions: true };
             }
-            throw error;
+            throw new Error(error.response?.data?.message || 'Failed to delete quiz');
         }
     },
 

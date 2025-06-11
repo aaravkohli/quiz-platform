@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { quizService } from '../services/api';
 import { Quiz, Question, Answer, QuestionType } from '../types/quiz';
@@ -15,7 +15,7 @@ export const QuizForm: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const loadQuiz = async () => {
+    const loadQuiz = useCallback(async () => {
         try {
             setLoading(true);
             const data = await quizService.getQuiz(parseInt(id!));
@@ -35,7 +35,7 @@ export const QuizForm: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
     useEffect(() => {
         if (id) {

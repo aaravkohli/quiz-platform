@@ -77,10 +77,10 @@ const Footer: React.FC = () => {
               <a href="/about" className="text-gray-300 hover:text-white">
                 About
               </a>
-              <a href="#" className="text-gray-300 hover:text-white transition-colors duration-200">
+              <a href="/privacy" className="text-gray-300 hover:text-white transition-colors duration-200">
                 Privacy Policy
               </a>
-              <a href="#" className="text-gray-300 hover:text-white transition-colors duration-200">
+              <a href="/terms" className="text-gray-300 hover:text-white transition-colors duration-200">
                 Terms of Service
               </a>
             </div>
