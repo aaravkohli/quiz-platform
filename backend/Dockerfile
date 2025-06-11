@@ -11,7 +11,7 @@ COPY --from=build /app/target/quiz-platform-1.0-SNAPSHOT.jar app.jar
 # Set environment variables
 ENV PORT=8080
 ENV DATABASE_URL=postgresql://quiz_platform_db_user:EZ8IhYi0YV4G19zHmYmGE6kN4Rgkdj7d@dpg-d14ib7h5pdvs73f77kdg-a.singapore-postgres.render.com/quiz_platform_db
-ENV JWT_SECRET=your-secret-key
+ENV JWT_SECRET=zBttzkQxkeGhKkoZOikQU5NhF2F3nvDwby423ic/LMI=
 
 # Expose the port
 EXPOSE ${PORT}
